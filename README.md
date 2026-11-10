@@ -8,9 +8,9 @@ Níveis do produto: **Núcleo** (análise vaga × currículo), **Meio-termo** (p
 ### Sprint 1 (10/11 a 13/11): fluxo principal funcionando de ponta a ponta
 
 **Setup e entregáveis do enunciado**
-- [ ] Validar a proposta com a Bárbara (XS)
-- [ ] Criar o repositório e adicionar a `BarbaraTieko` (XS)
-- [ ] Criar o quadro "Team Planning" no GitHub Projects com To Do, Doing e Done; cada tarefa com responsável, tamanho, data de início e data de fim (S)
+- [X] Validar a proposta com a Bárbara (XS)
+- [X] Criar o repositório e adicionar a `BarbaraTieko` (XS)
+- [X] Criar o quadro "Team Planning" no GitHub Projects com To Do, Doing e Done; cada tarefa com responsável, tamanho, data de início e data de fim (S)
 - [ ] Desenhar o fluxo de telas de baixa fidelidade e salvar a imagem em `docs/` (M)
 - [ ] Criar o esqueleto do Django REST Framework e do React (Vite), com `.env.example` e CORS (S)
 - [ ] Escolher e configurar o framework CSS (Tailwind ou Material UI) (S)
