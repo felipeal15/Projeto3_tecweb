@@ -1,0 +1,27 @@
+# Variáveis de ambiente (chaves e senhas nunca vão para o Git)
+.env
+.env.*
+!.env.example
+
+# Python / Django
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+db.sqlite3
+db.sqlite3-journal
+staticfiles/
+*.log
+
+# Node / Vite
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Editores e sistema
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
