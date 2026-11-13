@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+/* Cores e fonte do fluxo de telas. Use nas classes do Tailwind:
+   bg-marinho, text-marinho, bg-marinho-claro... */
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --color-marinho: #0f1f4d;
+  --color-marinho-claro: #1a2d63;
+}
+
+body {
+  @apply bg-slate-50 text-slate-900 antialiased;
+}
