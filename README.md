@@ -24,10 +24,10 @@ Níveis do produto: **Núcleo** (análise vaga × currículo), **Meio-termo** (p
 **Núcleo: currículo, vagas e análise**
 - [X] Criar os modelos `Perfil`, `Curriculo`, `Vaga` e `Analise` (S)
 - [X] API de CRUD de vagas, com status (interessado, candidatado, entrevista, oferta, encerrada) (M)
-- [ ] Tela para o usuário colar o texto do currículo (M)
-- [ ] IA: estruturar o currículo em JSON e guardar em cache (M)
-- [ ] IA: endpoint de análise da vaga com prompt, schema de saída e validação no serializer (L)
-- [ ] Cache da análise por par (currículo, vaga) (S)
+- [X] Tela para o usuário colar o texto do currículo (M)
+- [X] IA: estruturar o currículo em JSON e guardar em cache (M)
+- [X] IA: endpoint de análise da vaga com prompt, schema de saída e validação no serializer (L)
+- [X] Cache da análise por par (currículo, vaga) (S)
 - [ ] Tela de nova vaga (colar o texto) e tela de resultado da análise (L)
 - [ ] Kanban básico de vagas: listar por status e mover entre colunas (M)
 - [ ] Deploy com o fluxo principal funcionando (S)
@@ -126,6 +126,7 @@ Os valores ficam em `backend/.env` (local) ou no painel do Render (deploy). O `.
 | `CORS_ALLOWED_ORIGINS` | endereços do frontend que podem chamar a API |
 | `DATABASE_URL` | PostgreSQL do Render (vazio = SQLite local) |
 | `GEMINI_API_KEY` | chave da API do Gemini (Google AI Studio) |
+| `GEMINI_MODEL` | (opcional) modelo do Gemini; padrão `gemini-2.5-flash` |
 | `VITE_API_URL` | (frontend) endereço da API, terminando em `/api` |
 
 ## API
@@ -146,10 +147,17 @@ Todas as rotas, menos cadastro e login, exigem o cabeçalho `Authorization: Toke
 
 Status da vaga: `interessado`, `candidatado`, `entrevista`, `oferta`, `encerrada`. Cada vaga traz `ultima_nota` (0 a 100, ou `null` se ainda não foi analisada). Erros de validação voltam com 400 no formato `{campo: ["mensagem"]}`; vaga de outro usuário responde 404.
 
-Próximos endpoints (sugestão para as tarefas de IA, podem mudar):
+### Currículo e análise com IA
 
-| Método | Rota | O que faz |
-| --- | --- | --- |
-| GET / PUT | `/api/curriculo/` | lê e salva o texto do currículo; ao salvar, a IA estrutura em JSON |
-| POST | `/api/vagas/<id>/analise/` | analisa a vaga com a IA (usa o cache se currículo e vaga não mudaram) |
-| GET | `/api/vagas/<id>/analise/` | última análise da vaga |
+| Método | Rota | O que faz | Resposta |
+| --- | --- | --- | --- |
+| GET | `/api/curriculo/` | currículo do usuário | 200 `{texto, dados, desatualizado, atualizado_em}` ou 404 |
+| PUT | `/api/curriculo/` | salva `{texto}` (mín. 50 caracteres) e a IA estrutura em `dados` | 200 |
+| POST | `/api/vagas/<id>/analise/` | analisa a vaga com a IA | 201 (nova) ou 200 (do cache) |
+| GET | `/api/vagas/<id>/analise/` | última análise da vaga | 200 ou 404 |
+
+A análise volta como `{id, vaga, nota, resultado, modelo_ia, versao_prompt, criado_em}`, com `resultado = {nota, resumo, requisitos_atendidos[], lacunas[], sugestoes[]}`. O JSON da IA é validado pelo `ResultadoAnaliseSerializer` antes de ser salvo.
+
+Cache: o currículo só é reestruturado quando o texto muda, e a análise só chama a IA de novo quando o currículo ou o cargo/empresa/descrição da vaga mudam (chave = hashes SHA-256). Falha da IA (sem chave, limite de requisições, tempo esgotado, JSON fora do formato) responde 502 com `{detail}`. POST de análise sem currículo cadastrado responde 400.
+
+O código da IA fica em `backend/vagas/ia.py` (chamada REST ao Gemini, prompts e schemas). Testes com a IA simulada: `python manage.py test vagas`.
