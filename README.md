@@ -15,7 +15,7 @@ Níveis do produto: **Núcleo** (análise vaga × currículo), **Meio-termo** (p
 - [X] Criar o esqueleto do Django REST Framework e do React (Vite), com `.env.example` e CORS (S)
 - [X] Escolher e configurar o framework CSS: Tailwind (S)
 - [ ] Fazer o deploy inicial (backend e frontend) e colocar o link no README (M)
-- [ ] Gerar a chave da API do Gemini e guardá-la em variável de ambiente (XS)
+- [X] Gerar a chave da API do Gemini e guardá-la em variável de ambiente (XS)
 
 **Conta de usuário**
 - [X] Endpoints de cadastro, login e logout (M)
