@@ -1,8 +1,8 @@
-import { ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { lerErros } from "../api";
 import { useAuth } from "../auth/useAuth";
+import AvisoPrivacidade from "../components/AvisoPrivacidade";
 import { AvisoErro, BotaoPrimario, CampoTexto } from "../components/Formulario";
 import Logo from "../components/Logo";
 import PainelMarca from "../components/PainelMarca";
@@ -111,11 +111,7 @@ export default function Cadastro() {
                 required
               />
 
-              <p className="flex items-start gap-2.5 rounded-lg bg-slate-50 px-3 py-2.5 text-xs leading-relaxed text-slate-600">
-                <ShieldCheck className="mt-0.5 size-4 shrink-0 text-slate-400" aria-hidden="true" />
-                Para gerar as análises, o texto do seu currículo é enviado à API de IA do Google
-                Gemini.
-              </p>
+              <AvisoPrivacidade curto />
 
               <BotaoPrimario
                 type="submit"

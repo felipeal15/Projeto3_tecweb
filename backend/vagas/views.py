@@ -5,12 +5,17 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
+from contas.serializers import UsuarioSerializer
+
 from . import ia
-from .models import Analise, Curriculo, Vaga
+from .models import Analise, Carta, Curriculo, Vaga
 from .serializers import (
     AnaliseSerializer,
+    CartaSerializer,
     CurriculoSerializer,
+    GerarCartaSerializer,
     ResultadoAnaliseSerializer,
+    ResultadoCartaSerializer,
     VagaSerializer,
 )
 
@@ -73,8 +78,11 @@ def api_vaga(request, vaga_id):
     return Response(VagaSerializer(vaga).data)
 
 
-def erro_da_ia(erro):
-    return Response({"detail": str(erro)}, status=status.HTTP_502_BAD_GATEWAY)
+def erro_da_ia(mensagem, codigo="formato_invalido"):
+    """Falha da IA: 502 com a mensagem e o tipo do erro (ver ia.ErroIA)."""
+    return Response(
+        {"detail": str(mensagem), "codigo": codigo}, status=status.HTTP_502_BAD_GATEWAY
+    )
 
 
 def estruturar_se_preciso(curriculo):
@@ -102,7 +110,9 @@ def api_curriculo(request):
     try:
         estruturar_se_preciso(curriculo)
     except ia.ErroIA as erro:
-        return erro_da_ia(f"Currículo salvo, mas a IA não conseguiu organizá-lo: {erro}")
+        return erro_da_ia(
+            f"Currículo salvo, mas a IA não conseguiu organizá-lo. {erro}", erro.codigo
+        )
     return Response(CurriculoSerializer(curriculo).data)
 
 
@@ -135,7 +145,7 @@ def api_analise(request, vaga_id):
         estruturar_se_preciso(curriculo)
         resposta = ia.analisar_vaga(curriculo.dados, vaga)
     except ia.ErroIA as erro:
-        return erro_da_ia(erro)
+        return erro_da_ia(erro, erro.codigo)
 
     resultado = ResultadoAnaliseSerializer(data=resposta)
     if not resultado.is_valid():
@@ -152,3 +162,71 @@ def api_analise(request, vaga_id):
         versao_prompt=ia.VERSAO_PROMPT,
     )
     return Response(AnaliseSerializer(analise).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET", "POST", "PATCH"])
+def api_carta(request, vaga_id):
+    """GET: carta salva. POST {tom?, tamanho?}: a IA escreve (ou reescreve). PATCH {texto}: edição do usuário."""
+    vaga = Vaga.objects.filter(usuario=request.user, id=vaga_id).first()
+    if vaga is None:
+        raise Http404()
+    carta = Carta.objects.filter(vaga=vaga).first()
+
+    if request.method == "GET":
+        if carta is None:
+            return Response({"detail": "Ainda não há carta para esta vaga."}, status=404)
+        return Response(CartaSerializer(carta).data)
+
+    if request.method == "PATCH":
+        if carta is None:
+            return Response({"detail": "Gere a carta antes de editar."}, status=404)
+        serializer = CartaSerializer(carta, data={"texto": request.data.get("texto", "")}, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+    # POST: sempre chama a IA, porque o usuário pediu uma versão nova.
+    opcoes = GerarCartaSerializer(data=request.data)
+    opcoes.is_valid(raise_exception=True)
+    tom, tamanho = opcoes.validated_data["tom"], opcoes.validated_data["tamanho"]
+
+    curriculo = Curriculo.objects.filter(usuario=request.user).first()
+    if curriculo is None:
+        return Response(
+            {"detail": "Cadastre seu currículo antes de gerar a carta."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    hash_curriculo, hash_vaga = curriculo.hash_texto, vaga.hash_conteudo
+    # Se a vaga já foi analisada com este currículo, as lacunas ajudam a carta a ser honesta.
+    analise = vaga.analises.filter(hash_curriculo=hash_curriculo, hash_vaga=hash_vaga).first()
+    nome = UsuarioSerializer(request.user).data["nome"]
+
+    try:
+        estruturar_se_preciso(curriculo)
+        resposta = ia.escrever_carta(
+            curriculo.dados, vaga, nome, tom, tamanho, analise.resultado if analise else None
+        )
+    except ia.ErroIA as erro:
+        return erro_da_ia(erro, erro.codigo)
+
+    resultado = ResultadoCartaSerializer(data=resposta)
+    if not resultado.is_valid():
+        return erro_da_ia("A IA devolveu uma carta fora do formato esperado. Tente de novo.")
+
+    texto = resultado.validated_data["carta"].strip()
+    carta, _ = Carta.objects.update_or_create(
+        vaga=vaga,
+        defaults={
+            "texto": texto,
+            "texto_gerado": texto,
+            "fatos_usados": resultado.validated_data["fatos_usados"],
+            "tom": tom,
+            "tamanho": tamanho,
+            "hash_curriculo": hash_curriculo,
+            "hash_vaga": hash_vaga,
+            "modelo_ia": settings.GEMINI_MODEL,
+            "versao_prompt": ia.VERSAO_PROMPT_CARTA,
+        },
+    )
+    return Response(CartaSerializer(carta).data, status=status.HTTP_201_CREATED)

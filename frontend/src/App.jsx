@@ -3,6 +3,7 @@ import RotaProtegida from "./auth/RotaProtegida";
 import Layout from "./components/Layout";
 import AnaliseVaga from "./pages/AnaliseVaga";
 import Cadastro from "./pages/Cadastro";
+import CartaApresentacao from "./pages/CartaApresentacao";
 import Curriculo from "./pages/Curriculo";
 import Login from "./pages/Login";
 import MinhasVagas from "./pages/MinhasVagas";
@@ -19,6 +20,7 @@ export default function App() {
         <Route element={<Layout />}>
           <Route path="/vagas" element={<MinhasVagas />} />
           <Route path="/vagas/:id" element={<AnaliseVaga />} />
+          <Route path="/vagas/:id/carta" element={<CartaApresentacao />} />
           <Route path="/nova-vaga" element={<NovaVaga />} />
           <Route path="/curriculo" element={<Curriculo />} />
         </Route>

@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import Analise, Curriculo, Vaga
+from .models import Analise, Carta, Curriculo, Vaga
 
 
 @admin.register(Vaga)
@@ -18,3 +18,8 @@ class CurriculoAdmin(admin.ModelAdmin):
 @admin.register(Analise)
 class AnaliseAdmin(admin.ModelAdmin):
     list_display = ["vaga", "nota", "modelo_ia", "versao_prompt", "criado_em"]
+
+
+@admin.register(Carta)
+class CartaAdmin(admin.ModelAdmin):
+    list_display = ["vaga", "tom", "tamanho", "versao_prompt", "atualizado_em"]

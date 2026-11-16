@@ -28,6 +28,10 @@ SECRET_KEY = os.environ.get("SECRET_KEY", "dev-chave-insegura-troque-no-deploy")
 DEBUG = os.environ.get("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = lista_do_ambiente("ALLOWED_HOSTS", "localhost,127.0.0.1")
+# O Render informa o domínio do serviço (xxx.onrender.com) nesta variável.
+RENDER_EXTERNAL_HOSTNAME = os.environ.get("RENDER_EXTERNAL_HOSTNAME")
+if RENDER_EXTERNAL_HOSTNAME:
+    ALLOWED_HOSTS.append(RENDER_EXTERNAL_HOSTNAME)
 
 # Chave da API do Gemini. Nunca coloque o valor no código: só no .env / Render.
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")

@@ -11,7 +11,7 @@ Níveis do produto: **Núcleo** (análise vaga × currículo), **Meio-termo** (p
 - [X] Validar a proposta com a Bárbara (XS)
 - [X] Criar o repositório e adicionar a `BarbaraTieko` (XS)
 - [X] Criar o quadro "Team Planning" no GitHub Projects com To Do, Doing e Done; cada tarefa com responsável, tamanho, data de início e data de fim (S)
-- [ ] Desenhar o fluxo de telas de baixa fidelidade e salvar a imagem em `docs/` (M)
+- [X] Desenhar o fluxo de telas de baixa fidelidade e salvar a imagem em `docs/` (M)
 - [X] Criar o esqueleto do Django REST Framework e do React (Vite), com `.env.example` e CORS (S)
 - [X] Escolher e configurar o framework CSS: Tailwind (S)
 - [ ] Fazer o deploy inicial (backend e frontend) e colocar o link no README (M)
@@ -28,19 +28,19 @@ Níveis do produto: **Núcleo** (análise vaga × currículo), **Meio-termo** (p
 - [X] IA: estruturar o currículo em JSON e guardar em cache (M)
 - [X] IA: endpoint de análise da vaga com prompt, schema de saída e validação no serializer (L)
 - [X] Cache da análise por par (currículo, vaga) (S)
-- [ ] Tela de nova vaga (colar o texto) e tela de resultado da análise (L)
-- [ ] Kanban básico de vagas: listar por status e mover entre colunas (M)
+- [X] Tela de nova vaga (colar o texto) e tela de resultado da análise (L)
+- [X] Kanban básico de vagas: listar por status e mover entre colunas (M)
 - [ ] Deploy com o fluxo principal funcionando (S)
 - [ ] Responder o questionário de equipe da Sprint 1 (XS)
 
 ### Sprint 2 (16/11 a 19/11): acabamento, meio-termo e diferencial
 
 **Núcleo: finalização**
-- [ ] IA: gerar carta de apresentação usando só fatos do currículo, com edição pelo usuário (M)
-- [ ] Tratar erros da IA (limite de requisições, JSON inválido, tempo esgotado) e estados de carregamento (M)
-- [ ] Aviso de privacidade sobre o envio do currículo à API de IA (XS)
-- [ ] Aplicar o framework CSS em todas as telas (L)
-- [ ] Testes do backend: autenticação, vagas e análise com a IA simulada (mock) (M)
+- [X] IA: gerar carta de apresentação usando só fatos do currículo, com edição pelo usuário (M)
+- [X] Tratar erros da IA (limite de requisições, JSON inválido, tempo esgotado) e estados de carregamento (M)
+- [X] Aviso de privacidade sobre o envio do currículo à API de IA (XS)
+- [X] Aplicar o framework CSS em todas as telas (L)
+- [X] Testes do backend: autenticação, vagas e análise com a IA simulada (mock) (M)
 
 **Meio-termo: preferências e sugestões**
 - [ ] Modelo e endpoint de preferências (áreas, tipo da vaga, modalidade, cidade, stack, o que evitar) (S)
@@ -79,13 +79,22 @@ Níveis do produto: **Núcleo** (análise vaga × currículo), **Meio-termo** (p
 ```
 backend/    Django REST Framework (projeto "encaixe")
   contas/   Perfil, cadastro, login e logout
-  vagas/    Curriculo, Vaga, Analise e o CRUD de vagas
+  vagas/    Curriculo, Vaga, Analise, Carta, o CRUD de vagas e a IA (ia.py)
+  build.sh  build do deploy no Render
 frontend/   React (Vite) + Tailwind
   src/api.js            axios já com o endereço do backend e o token
+  src/vagas.js          status do kanban, nível da nota e datas
   src/auth/             login no React (useAuth, RotaProtegida)
-  src/components/       Layout com menu lateral, campos de formulário...
+  src/components/       Layout, formulário, cabeçalho, aviso de privacidade, carregamento da IA...
   src/pages/            uma tela por arquivo
+docs/       fluxo de telas
 ```
+
+## Fluxo de telas
+
+![Fluxo de telas do Encaixe](docs/fluxo-de-telas.png)
+
+Telas prontas: login, cadastro, currículo, minhas vagas (kanban), nova vaga, análise da vaga e carta de apresentação. Sugestões de busca, vagas para você e preferências são do meio-termo e do extra da Sprint 2.
 
 ## Como rodar localmente
 
@@ -156,8 +165,60 @@ Status da vaga: `interessado`, `candidatado`, `entrevista`, `oferta`, `encerrada
 | POST | `/api/vagas/<id>/analise/` | analisa a vaga com a IA | 201 (nova) ou 200 (do cache) |
 | GET | `/api/vagas/<id>/analise/` | última análise da vaga | 200 ou 404 |
 
-A análise volta como `{id, vaga, nota, resultado, modelo_ia, versao_prompt, criado_em}`, com `resultado = {nota, resumo, requisitos_atendidos[], lacunas[], sugestoes[]}`. O JSON da IA é validado pelo `ResultadoAnaliseSerializer` antes de ser salvo.
+A análise volta como `{id, vaga, nota, resultado, desatualizada, modelo_ia, versao_prompt, criado_em}`, com `resultado = {nota, resumo, requisitos_atendidos[], lacunas[], sugestoes[]}`. O JSON da IA é validado pelo `ResultadoAnaliseSerializer` antes de ser salvo.
 
-Cache: o currículo só é reestruturado quando o texto muda, e a análise só chama a IA de novo quando o currículo ou o cargo/empresa/descrição da vaga mudam (chave = hashes SHA-256). Falha da IA (sem chave, limite de requisições, tempo esgotado, JSON fora do formato) responde 502 com `{detail}`. POST de análise sem currículo cadastrado responde 400.
+Cache: o currículo só é reestruturado quando o texto muda, e a análise só chama a IA de novo quando o currículo ou o cargo/empresa/descrição da vaga mudam (chave = hashes SHA-256). Falha da IA (sem chave, limite de requisições, tempo esgotado, JSON fora do formato) responde 502 com `{detail, codigo}` (ver [Erros da IA](#erros-da-ia)). POST de análise sem currículo cadastrado responde 400.
 
-O código da IA fica em `backend/vagas/ia.py` (chamada REST ao Gemini, prompts e schemas). Testes com a IA simulada: `python manage.py test vagas`.
+### Carta de apresentação
+
+| Método | Rota | O que faz | Resposta |
+| --- | --- | --- | --- |
+| GET | `/api/vagas/<id>/carta/` | carta salva da vaga | 200 ou 404 |
+| POST | `/api/vagas/<id>/carta/` | a IA escreve uma versão nova: `{tom?, tamanho?}` | 201 |
+| PATCH | `/api/vagas/<id>/carta/` | salva a edição do usuário: `{texto}` (até 6000 caracteres) | 200 |
+
+`tom`: `formal`, `neutro` (padrão) ou `entusiasmado`. `tamanho`: `curta` (padrão) ou `media`. A resposta é `{id, vaga, texto, fatos_usados[], tom, tamanho, editada, desatualizada, modelo_ia, versao_prompt, criado_em, atualizado_em}`. O prompt manda a IA usar só fatos do currículo estruturado e devolver em `fatos_usados` os fatos que ela usou, para o usuário conferir; se a vaga já foi analisada, as lacunas da análise entram no prompt para a carta tratar com honestidade o que falta. A carta não tem cache: cada POST é uma versão nova (substitui a anterior, inclusive as edições). `editada` = o usuário mudou o texto da IA; `desatualizada` = o currículo ou a vaga mudaram depois que a carta foi gerada (a análise tem o mesmo campo).
+
+### Erros da IA
+
+Toda falha da IA responde 502 com `{detail, codigo}`. O `detail` já é a mensagem para mostrar ao usuário; o `codigo` diz o tipo:
+
+| `codigo` | Quando acontece | O backend tenta de novo? |
+| --- | --- | --- |
+| `limite` | o Gemini respondeu 429 (cota gratuita acabou) | não |
+| `tempo_esgotado` | o Gemini passou de 50 s sem responder | não |
+| `indisponivel` | o Gemini respondeu 5xx | sim, uma vez |
+| `formato_invalido` | JSON quebrado ou fora do schema (o serializer reprova) | sim, uma vez, no JSON quebrado |
+| `sem_conexao` | sem rede até o Google | não |
+| `recusado` | 400/401/403: em geral, chave inválida | não |
+| `sem_chave` | `GEMINI_API_KEY` vazia no backend | não |
+
+No frontend, as chamadas à IA usam `{ timeout: TEMPO_IA }` (2 min) e as telas mostram um card de carregamento com contador de segundos e o botão "Tentar de novo" quando dá erro.
+
+O código da IA fica em `backend/vagas/ia.py` (chamada REST ao Gemini, prompts e schemas).
+
+## Testes
+
+```bash
+cd backend
+python manage.py test
+```
+
+São 34 testes, todos com a IA simulada (mock), sem gastar a cota do Gemini: cadastro, login, logout e token (`contas/tests.py`); CRUD de vagas, status do kanban e acesso só às próprias vagas; currículo, análise e carta com cache e validação; e a tradução de cada falha do Gemini (429, 5xx, tempo esgotado, JSON inválido, sem chave) em `ErroIA` (`vagas/tests.py`).
+
+## Deploy (Render)
+
+Ainda não foi feito. Passo a passo para quem for fazer:
+
+1. **Banco**: crie um PostgreSQL (plano free) e copie a *External Database URL*.
+2. **Backend**: crie um *Web Service* ligado a este repositório.
+   - Root Directory: `backend` · Runtime: Python
+   - Build Command: `bash build.sh` (instala, roda o `collectstatic` e o `migrate`)
+   - Start Command: `gunicorn encaixe.wsgi:application --timeout 120` (o padrão de 30 s do gunicorn é menor que o tempo de uma chamada ao Gemini)
+   - Variáveis: `PYTHON_VERSION=3.12.8`, `SECRET_KEY` (texto aleatório novo), `DEBUG=False`, `DATABASE_URL`, `GEMINI_API_KEY` e `CORS_ALLOWED_ORIGINS` (endereço do frontend, passo 3). O domínio `.onrender.com` do serviço entra no `ALLOWED_HOSTS` sozinho (o Render informa em `RENDER_EXTERNAL_HOSTNAME`).
+3. **Frontend**: crie um *Static Site* ligado ao mesmo repositório.
+   - Root Directory: `frontend` · Build Command: `npm ci && npm run build` · Publish Directory: `dist`
+   - Variável: `VITE_API_URL=https://<backend>.onrender.com/api`
+   - Em *Redirects/Rewrites*, adicione `/*` → `/index.html` (tipo *Rewrite*), senão recarregar em `/vagas/3` dá 404.
+4. Volte ao backend e confira se o `CORS_ALLOWED_ORIGINS` tem o endereço do Static Site (com `https://`, sem barra no final).
+5. Coloque os dois links no topo deste README.

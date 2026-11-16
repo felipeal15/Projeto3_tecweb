@@ -30,22 +30,39 @@ api.interceptors.response.use(
   },
 );
 
+// Tempo máximo das chamadas que usam a IA (análise, carta, currículo). O Gemini leva
+// de 5 a 30 s e o backend ainda tenta de novo se ele falhar. Use: api.post(url, dados, { timeout: TEMPO_IA }).
+export const TEMPO_IA = 120000;
+
 /**
  * Transforma um erro do axios em mensagens para a tela.
  * O DRF devolve { campo: ["mensagem"] } para erros de campo
  * e { detail } ou { non_field_errors } para erros gerais.
+ * Falhas da IA (502) trazem também { codigo }: limite, tempo_esgotado, formato_invalido...
  */
 export function lerErros(erro) {
   if (!erro.response) {
+    if (erro.code === "ECONNABORTED" || erro.code === "ETIMEDOUT") {
+      return {
+        geral: "O servidor demorou demais para responder. Tente de novo.",
+        campos: {},
+        codigo: "tempo_esgotado",
+      };
+    }
     return { geral: "Não foi possível falar com o servidor. Ele está rodando?", campos: {} };
   }
   const dados = erro.response.data;
   if (!dados || typeof dados !== "object") {
-    return { geral: "Algo deu errado. Tente de novo.", campos: {} };
+    const geral =
+      erro.response.status >= 500
+        ? "O servidor teve um problema. Tente de novo em instantes."
+        : "Algo deu errado. Tente de novo.";
+    return { geral, campos: {} };
   }
   const campos = {};
   let geral = "";
   for (const [chave, valor] of Object.entries(dados)) {
+    if (chave === "codigo") continue;
     const texto = Array.isArray(valor) ? valor.join(" ") : String(valor);
     if (chave === "detail" || chave === "non_field_errors") {
       geral = texto;
@@ -53,7 +70,7 @@ export function lerErros(erro) {
       campos[chave] = texto;
     }
   }
-  return { geral, campos };
+  return { geral, campos, codigo: dados.codigo };
 }
 
 export default api;

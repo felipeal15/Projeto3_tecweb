@@ -93,3 +93,39 @@ class Analise(models.Model):
 
     def __str__(self):
         return f"Análise de {self.vaga} ({self.nota}%)"
+
+
+class Carta(models.Model):
+    """Carta de apresentação de uma vaga (uma por vaga).
+
+    A IA escreve o rascunho e o usuário pode editar. "Gerar outra versão"
+    substitui o texto. `texto_gerado` guarda o que a IA escreveu, para saber
+    se o usuário mexeu.
+    """
+
+    class Tom(models.TextChoices):
+        FORMAL = "formal", "Formal"
+        NEUTRO = "neutro", "Neutro"
+        ENTUSIASMADO = "entusiasmado", "Entusiasmado"
+
+    class Tamanho(models.TextChoices):
+        CURTA = "curta", "Curta"
+        MEDIA = "media", "Média"
+
+    vaga = models.OneToOneField(Vaga, on_delete=models.CASCADE, related_name="carta")
+    texto = models.TextField()
+    texto_gerado = models.TextField()
+    # Fatos do currículo que a IA diz ter usado, para o usuário conferir.
+    fatos_usados = models.JSONField(default=list)
+    tom = models.CharField(max_length=20, choices=Tom.choices, default=Tom.NEUTRO)
+    tamanho = models.CharField(max_length=10, choices=Tamanho.choices, default=Tamanho.CURTA)
+    # Hashes do currículo e da vaga usados na geração (para avisar se mudaram).
+    hash_curriculo = models.CharField(max_length=64)
+    hash_vaga = models.CharField(max_length=64)
+    modelo_ia = models.CharField(max_length=60, blank=True)
+    versao_prompt = models.CharField(max_length=20, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Carta para {self.vaga}"

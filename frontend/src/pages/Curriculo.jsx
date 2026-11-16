@@ -1,8 +1,10 @@
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, TriangleAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import api, { lerErros } from "../api";
-import { AvisoErro, BotaoPrimario } from "../components/Formulario";
+import api, { lerErros, TEMPO_IA } from "../api";
+import AvisoPrivacidade from "../components/AvisoPrivacidade";
+import Cabecalho from "../components/Cabecalho";
+import { AvisoErro, BotaoPrimario, CampoAreaTexto } from "../components/Formulario";
 import TelaCarregando from "../components/TelaCarregando";
 
 // Passo 2 do onboarding: depois do cadastro o usuário cai aqui.
@@ -10,6 +12,8 @@ import TelaCarregando from "../components/TelaCarregando";
 export default function Curriculo() {
   const [texto, setTexto] = useState("");
   const [dados, setDados] = useState(null);
+  // Texto salvo que a IA ainda não organizou (ela falhou da última vez).
+  const [pendente, setPendente] = useState(false);
   const [carregando, setCarregando] = useState(true);
   const [salvando, setSalvando] = useState(false);
   const [erros, setErros] = useState({ geral: "", campos: {} });
@@ -20,6 +24,7 @@ export default function Curriculo() {
       .then(({ data }) => {
         setTexto(data.texto);
         setDados(data.desatualizado ? null : data.dados);
+        setPendente(data.desatualizado);
       })
       .catch((erro) => {
         if (erro.response?.status !== 404) setErros(lerErros(erro));
@@ -32,51 +37,51 @@ export default function Curriculo() {
     setSalvando(true);
     setErros({ geral: "", campos: {} });
     try {
-      const { data } = await api.put("/curriculo/", { texto });
+      const { data } = await api.put("/curriculo/", { texto }, { timeout: TEMPO_IA });
       setDados(data.dados);
+      setPendente(false);
     } catch (erro) {
       setDados(null);
+      // 502: o texto foi salvo, só a IA falhou. Clicar em Salvar de novo tenta outra vez.
+      setPendente(erro.response?.status === 502);
       setErros(lerErros(erro));
     } finally {
       setSalvando(false);
     }
   }
 
-  if (carregando) return <TelaCarregando />;
+  if (carregando) return <TelaCarregando dentroDoLayout />;
 
   return (
     <section className="max-w-3xl">
-      <h1 className="text-2xl font-bold text-slate-900">Seu currículo</h1>
-      <p className="mt-1 text-sm text-slate-500">
-        Cole o texto do seu currículo. A IA organiza as informações e usa esse resumo para analisar
-        cada vaga. O texto é enviado para a API do Google Gemini.
-      </p>
+      <Cabecalho
+        titulo="Seu currículo"
+        subtitulo="Cole o texto do seu currículo. A IA organiza as informações e usa esse resumo para analisar cada vaga e escrever as cartas."
+      />
 
-      <form onSubmit={aoEnviar} className="mt-6 space-y-4">
+      <form
+        onSubmit={aoEnviar}
+        className="space-y-4 rounded-xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6"
+      >
         <AvisoErro>{erros.geral}</AvisoErro>
-        <div>
-          <label htmlFor="texto" className="mb-1.5 block text-sm font-medium text-slate-700">
-            Texto do currículo
-          </label>
-          <textarea
-            id="texto"
-            rows={14}
-            value={texto}
-            onChange={(e) => setTexto(e.target.value)}
-            placeholder="Formação, experiências, projetos, habilidades, idiomas..."
-            aria-invalid={erros.campos.texto ? true : undefined}
-            aria-describedby={erros.campos.texto ? "texto-ajuda" : undefined}
-            className={`block w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-slate-900 shadow-xs outline-none transition placeholder:text-slate-400 focus:ring-2 focus:ring-blue-600/20 ${
-              erros.campos.texto ? "border-red-400 focus:border-red-500" : "border-slate-300 focus:border-blue-600"
-            }`}
-            required
-          />
-          {erros.campos.texto && (
-            <p id="texto-ajuda" className="mt-1.5 text-xs text-red-600">
-              {erros.campos.texto}
-            </p>
-          )}
-        </div>
+        {pendente && !erros.geral && (
+          <p className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-800">
+            <TriangleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+            Seu currículo está salvo, mas a IA ainda não conseguiu organizá-lo. Clique em Salvar
+            currículo para tentar de novo.
+          </p>
+        )}
+        <CampoAreaTexto
+          id="texto"
+          rotulo="Texto do currículo"
+          rows={14}
+          value={texto}
+          onChange={(e) => setTexto(e.target.value)}
+          placeholder="Formação, experiências, projetos, habilidades, idiomas..."
+          erro={erros.campos.texto}
+          required
+        />
+        <AvisoPrivacidade />
         <BotaoPrimario type="submit" carregando={salvando} textoCarregando="Organizando com a IA...">
           Salvar currículo
         </BotaoPrimario>
@@ -89,7 +94,7 @@ export default function Curriculo() {
 
 function ResumoCurriculo({ dados }) {
   return (
-    <div className="mt-8 rounded-xl border border-slate-200 bg-white p-6">
+    <div className="mt-6 rounded-xl border border-slate-200 bg-white p-5 shadow-xs sm:p-6">
       <div className="flex items-center gap-2 text-sm font-medium text-emerald-700">
         <CheckCircle2 className="size-4" aria-hidden="true" />
         Currículo organizado pela IA. Confira se está tudo certo.

@@ -6,5 +6,6 @@ urlpatterns = [
     path("vagas/", views.api_vagas),
     path("vagas/<int:vaga_id>/", views.api_vaga),
     path("vagas/<int:vaga_id>/analise/", views.api_analise),
+    path("vagas/<int:vaga_id>/carta/", views.api_carta),
     path("curriculo/", views.api_curriculo),
 ]

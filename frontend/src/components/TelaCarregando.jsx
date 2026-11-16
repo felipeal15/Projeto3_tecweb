@@ -1,8 +1,12 @@
 import { LoaderCircle } from "lucide-react";
 
-export default function TelaCarregando() {
+/** Spinner centralizado. `dentroDoLayout` usa meia tela em vez da tela inteira. */
+export default function TelaCarregando({ dentroDoLayout = false }) {
   return (
-    <div className="grid min-h-screen place-items-center" role="status">
+    <div
+      className={`grid place-items-center ${dentroDoLayout ? "min-h-[50vh]" : "min-h-screen"}`}
+      role="status"
+    >
       <LoaderCircle className="size-6 animate-spin text-blue-600" aria-hidden="true" />
       <span className="sr-only">Carregando</span>
     </div>
