@@ -10,6 +10,7 @@ import MinhasVagas from "./pages/MinhasVagas";
 import NovaVaga from "./pages/NovaVaga";
 import Preferencias from "./pages/Preferencias";
 import SugestoesBusca from "./pages/SugestoesBusca";
+import VagasParaVoce from "./pages/VagasParaVoce";
 
 export default function App() {
   return (
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/curriculo" element={<Curriculo />} />
           <Route path="/preferencias" element={<Preferencias />} />
           <Route path="/sugestoes" element={<SugestoesBusca />} />
+          <Route path="/vagas-para-voce" element={<VagasParaVoce />} />
         </Route>
       </Route>
 

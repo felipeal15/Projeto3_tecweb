@@ -4,19 +4,21 @@ import {
   FileText,
   LogOut,
   Plus,
+  Search,
   SlidersHorizontal,
 } from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
 import Logo from "./Logo";
 
-// Menu lateral. Telas novas (ex.: Vagas para você) entram aqui, junto com a rota no App.jsx.
+// Menu lateral. Telas novas entram aqui, junto com a rota no App.jsx.
 const secoes = [
   {
     titulo: "Vagas",
     itens: [
       { para: "/vagas", rotulo: "Minhas vagas", Icone: BriefcaseBusiness },
       { para: "/nova-vaga", rotulo: "Nova vaga", Icone: Plus },
+      { para: "/vagas-para-voce", rotulo: "Vagas para você", Icone: Search },
       { para: "/sugestoes", rotulo: "Sugestões de busca", Icone: Compass },
     ],
   },
