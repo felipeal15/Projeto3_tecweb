@@ -36,7 +36,7 @@ if RENDER_EXTERNAL_HOSTNAME:
 # Chave da API do Gemini. Nunca coloque o valor no código: só no .env / Render.
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 # Modelo do Gemini usado nas chamadas (troque se o Google aposentar este).
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL") or "gemini-2.5-flash"
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL") or "gemini-3.5-flash-lite"
 
 
 INSTALLED_APPS = [

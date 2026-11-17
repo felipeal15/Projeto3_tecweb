@@ -1,5 +1,10 @@
 # Projeto3_tecweb
 
+- **Deploy:** https://encaixe-yg09.onrender.com
+- **API:** https://encaixe-backend.onrender.com/api
+
+> Backend no plano gratuito do Render: depois de 15 min sem uso ele "dorme", e o primeiro acesso pode levar até 1 minuto.
+
 ## Cronograma
 
 Legenda de tamanho: XS, S, M, L, XL (os mesmos usados no quadro do GitHub Projects).
@@ -14,7 +19,7 @@ Níveis do produto: **Núcleo** (análise vaga × currículo), **Meio-termo** (p
 - [X] Desenhar o fluxo de telas de baixa fidelidade e salvar a imagem em `docs/` (M)
 - [X] Criar o esqueleto do Django REST Framework e do React (Vite), com `.env.example` e CORS (S)
 - [X] Escolher e configurar o framework CSS: Tailwind (S)
-- [ ] Fazer o deploy inicial (backend e frontend) e colocar o link no README (M)
+- [X] Fazer o deploy inicial (backend e frontend) e colocar o link no README (M)
 - [X] Gerar a chave da API do Gemini e guardá-la em variável de ambiente (XS)
 
 **Conta de usuário**
@@ -30,8 +35,8 @@ Níveis do produto: **Núcleo** (análise vaga × currículo), **Meio-termo** (p
 - [X] Cache da análise por par (currículo, vaga) (S)
 - [X] Tela de nova vaga (colar o texto) e tela de resultado da análise (L)
 - [X] Kanban básico de vagas: listar por status e mover entre colunas (M)
-- [ ] Deploy com o fluxo principal funcionando (S)
-- [ ] Responder o questionário de equipe da Sprint 1 (XS)
+- [X] Deploy com o fluxo principal funcionando (S)
+- [X] Responder o questionário de equipe da Sprint 1 (XS)
 
 ### Sprint 2 (16/11 a 19/11): acabamento, meio-termo e diferencial
 
@@ -135,7 +140,7 @@ Os valores ficam em `backend/.env` (local) ou no painel do Render (deploy). O `.
 | `CORS_ALLOWED_ORIGINS` | endereços do frontend que podem chamar a API |
 | `DATABASE_URL` | PostgreSQL do Render (vazio = SQLite local) |
 | `GEMINI_API_KEY` | chave da API do Gemini (Google AI Studio) |
-| `GEMINI_MODEL` | (opcional) modelo do Gemini; padrão `gemini-2.5-flash` |
+| `GEMINI_MODEL` | (opcional) modelo do Gemini; padrão `gemini-3.5-flash-lite` |
 | `VITE_API_URL` | (frontend) endereço da API, terminando em `/api` |
 
 ## API
@@ -208,7 +213,7 @@ São 34 testes, todos com a IA simulada (mock), sem gastar a cota do Gemini: cad
 
 ## Deploy (Render)
 
-Ainda não foi feito. Passo a passo para quem for fazer:
+Feito em 17/11/2026: backend (Web Service), frontend (Static Site) e PostgreSQL no Render, região Oregon. Passo a passo:
 
 1. **Banco**: crie um PostgreSQL (plano free) e copie a *External Database URL*.
 2. **Backend**: crie um *Web Service* ligado a este repositório.
