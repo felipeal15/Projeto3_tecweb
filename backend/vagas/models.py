@@ -70,8 +70,8 @@ class Vaga(models.Model):
 class Analise(models.Model):
     """Resultado da IA comparando um currículo com uma vaga.
 
-    O par (hash_curriculo, hash_vaga) é a chave do cache: se já existe uma
-    análise com os hashes atuais do currículo e da vaga, não precisa chamar a IA.
+    Os hashes do currículo, da vaga e das preferências são a chave do cache: se já
+    existe uma análise com os três hashes atuais, não precisa chamar a IA.
     """
 
     vaga = models.ForeignKey(Vaga, on_delete=models.CASCADE, related_name="analises")
@@ -80,6 +80,8 @@ class Analise(models.Model):
     )
     hash_curriculo = models.CharField(max_length=64)
     hash_vaga = models.CharField(max_length=64)
+    # "" = feita sem preferências (ver contas.models.hash_preferencias).
+    hash_preferencias = models.CharField(max_length=64, blank=True, default="")
     nota = models.PositiveSmallIntegerField()  # aderência de 0 a 100
     # Requisitos atendidos, lacunas, sugestões... no formato do schema da IA.
     resultado = models.JSONField(default=dict)
@@ -129,3 +131,28 @@ class Carta(models.Model):
 
     def __str__(self):
         return f"Carta para {self.vaga}"
+
+
+class Sugestoes(models.Model):
+    """Cargos e palavras-chave de busca que a IA sugeriu para o usuário (uma linha por usuário).
+
+    "Atualizar sugestões" substitui o conteúdo. Os hashes avisam se o currículo
+    ou as preferências mudaram depois.
+    """
+
+    usuario = models.OneToOneField(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="sugestoes"
+    )
+    # [{cargo, area, nota, por_que, busca, palavras_chave[]}], da maior para a menor nota.
+    cargos = models.JSONField(default=list)
+    hash_curriculo = models.CharField(max_length=64)
+    hash_preferencias = models.CharField(max_length=64, blank=True, default="")
+    modelo_ia = models.CharField(max_length=60, blank=True)
+    versao_prompt = models.CharField(max_length=20, blank=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name_plural = "sugestões"
+
+    def __str__(self):
+        return f"Sugestões de busca de {self.usuario}"

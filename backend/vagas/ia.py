@@ -12,8 +12,11 @@ import urllib.request
 from django.conf import settings
 
 URL = "https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent"
-VERSAO_PROMPT = "v1"
-VERSAO_PROMPT_CARTA = "carta-v1"
+# v2: a análise recebe as preferências e devolve alertas_preferencias.
+VERSAO_PROMPT = "v2"
+# carta-v2: a carta usa as áreas e a stack de interesse como motivação.
+VERSAO_PROMPT_CARTA = "carta-v2"
+VERSAO_PROMPT_SUGESTOES = "sugestoes-v1"
 
 # Tempo máximo de cada chamada. O gunicorn do deploy espera até 120 s
 # (ver README), então duas tentativas de 50 s ainda cabem.
@@ -155,8 +158,38 @@ SCHEMA_ANALISE = {
         "requisitos_atendidos": LISTA_DE_TEXTOS,
         "lacunas": LISTA_DE_TEXTOS,
         "sugestoes": LISTA_DE_TEXTOS,
+        "alertas_preferencias": LISTA_DE_TEXTOS,
     },
-    "required": ["nota", "resumo", "requisitos_atendidos", "lacunas", "sugestoes"],
+    "required": [
+        "nota",
+        "resumo",
+        "requisitos_atendidos",
+        "lacunas",
+        "sugestoes",
+        "alertas_preferencias",
+    ],
+}
+
+SCHEMA_SUGESTOES = {
+    "type": "OBJECT",
+    "properties": {
+        "cargos": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "cargo": {"type": "STRING"},
+                    "area": {"type": "STRING"},
+                    "nota": {"type": "INTEGER"},
+                    "por_que": {"type": "STRING"},
+                    "busca": {"type": "STRING"},
+                    "palavras_chave": LISTA_DE_TEXTOS,
+                },
+                "required": ["cargo", "area", "nota", "por_que", "busca", "palavras_chave"],
+            },
+        },
+    },
+    "required": ["cargos"],
 }
 
 SCHEMA_CARTA = {
@@ -187,7 +220,26 @@ def estruturar_curriculo(texto):
     return chamar_gemini(prompt, SCHEMA_CURRICULO)
 
 
-def analisar_vaga(dados_curriculo, vaga):
+def analisar_vaga(dados_curriculo, vaga, preferencias=None):
+    """`preferencias` (opcional) é o dict de Preferencias.para_ia(): vira alertas, não muda a nota."""
+    if preferencias:
+        instrucao_alertas = (
+            "- alertas_preferencias: pontos da vaga que vão contra as preferências do candidato "
+            "(tipo de vaga, modalidade, cidade, stack que ele quer usar ou o que ele prefere "
+            "evitar). Em cada alerta, diga qual preferência é afetada e o que a vaga diz "
+            '(ex.: "Você prefere vagas remotas, e esta é presencial em Campinas."). '
+            "Só aponte o que a vaga diz claramente; se ela não informa, não é alerta. "
+            "Lista vazia se não houver conflito.\n"
+            "As preferências não mudam a nota: a nota mede só o currículo contra a vaga.\n"
+        )
+        bloco_preferencias = (
+            f"PREFERÊNCIAS DO CANDIDATO:\n{json.dumps(preferencias, ensure_ascii=False)}\n\n"
+        )
+    else:
+        instrucao_alertas = (
+            "- alertas_preferencias: lista vazia (o candidato não informou preferências).\n"
+        )
+        bloco_preferencias = ""
     prompt = (
         "Você é um recrutador que ajuda estudantes a decidir se vale a pena se "
         "candidatar a uma vaga. Compare o currículo (em JSON) com a vaga e responda "
@@ -196,9 +248,11 @@ def analisar_vaga(dados_curriculo, vaga):
         "- resumo: 2 a 3 frases dizendo se vale se candidatar e por quê;\n"
         "- requisitos_atendidos: requisitos da vaga que o currículo comprova;\n"
         "- lacunas: requisitos da vaga que o currículo não mostra;\n"
-        "- sugestoes: ações concretas para melhorar a candidatura.\n"
+        "- sugestoes: ações concretas para melhorar a candidatura;\n"
+        f"{instrucao_alertas}"
         "Baseie-se só no que está no currículo e na vaga; não suponha experiências "
         "que não foram escritas.\n\n"
+        f"{bloco_preferencias}"
         f"CURRÍCULO:\n{json.dumps(dados_curriculo, ensure_ascii=False)}\n\n"
         f"VAGA:\n{texto_da_vaga(vaga)}"
     )
@@ -216,11 +270,14 @@ TAMANHOS = {
 }
 
 
-def escrever_carta(dados_curriculo, vaga, nome, tom, tamanho, analise=None):
+def escrever_carta(dados_curriculo, vaga, nome, tom, tamanho, analise=None, preferencias=None):
     """Escreve a carta de apresentação usando só fatos do currículo estruturado.
 
     `analise` (opcional) é o resultado da análise da vaga: as lacunas ajudam a
     IA a tratar com honestidade o que o currículo não mostra.
+    `preferencias` (opcional, de Preferencias.para_ia()): as áreas e a stack de
+    interesse viram motivação na carta. Cidade, modalidade e o que a pessoa
+    prefere evitar ficam de fora, porque não cabem numa carta.
     """
     contexto_analise = ""
     if analise:
@@ -228,6 +285,19 @@ def escrever_carta(dados_curriculo, vaga, nome, tom, tamanho, analise=None):
             "ANÁLISE JÁ FEITA DESTA VAGA (use para escolher o que destacar):\n"
             f"Requisitos atendidos: {json.dumps(analise.get('requisitos_atendidos', []), ensure_ascii=False)}\n"
             f"Lacunas: {json.dumps(analise.get('lacunas', []), ensure_ascii=False)}\n\n"
+        )
+    interesses = {
+        chave: valor
+        for chave, valor in (preferencias or {}).items()
+        if chave in ("areas_de_interesse", "stack_que_quer_usar")
+    }
+    contexto_interesses = ""
+    if interesses:
+        contexto_interesses = (
+            "INTERESSES QUE O CANDIDATO MARCOU (use só como motivação, quando tiverem a ver "
+            "com a vaga; interesse não é experiência, então não diga que ele já trabalhou "
+            "com algo que não está no currículo):\n"
+            f"{json.dumps(interesses, ensure_ascii=False)}\n\n"
         )
     prompt = (
         "Você escreve cartas de apresentação para estudantes que vão se candidatar "
@@ -250,8 +320,54 @@ def escrever_carta(dados_curriculo, vaga, nome, tom, tamanho, analise=None):
         "- fatos_usados: cada fato do currículo que a carta usa, curto "
         '(ex.: "Engenharia de Computação · Insper (2023–2027)").\n\n'
         f"{contexto_analise}"
+        f"{contexto_interesses}"
         f"CURRÍCULO:\n{json.dumps(dados_curriculo, ensure_ascii=False)}\n\n"
         f"VAGA:\n{texto_da_vaga(vaga)}"
     )
     # Temperatura maior que a da análise: "Gerar outra versão" precisa mudar o texto.
     return chamar_gemini(prompt, SCHEMA_CARTA, temperatura=0.7)
+
+
+def sugerir_buscas(dados_curriculo, preferencias=None):
+    """Sugere cargos para procurar, com o texto de busca e palavras-chave de cada um."""
+    if preferencias:
+        bloco_preferencias = (
+            f"PREFERÊNCIAS DO CANDIDATO:\n{json.dumps(preferencias, ensure_ascii=False)}\n\n"
+        )
+        regra_preferencias = (
+            "- Priorize as áreas de interesse e a stack que a pessoa quer usar. No máximo uma "
+            "sugestão pode sair das áreas marcadas, e só se o currículo mostrar uma ponte clara.\n"
+            "- Use o tipo de vaga preferido no nome do cargo. Se houver mais de um, use o que "
+            "combina melhor com o currículo.\n"
+            "- Não sugira nada que bata com o que a pessoa prefere evitar.\n"
+        )
+    else:
+        bloco_preferencias = ""
+        regra_preferencias = (
+            "- A pessoa não informou preferências: escolha áreas e o nível (estágio, trainee "
+            "ou júnior) que combinam com o currículo.\n"
+        )
+    prompt = (
+        "Você é um orientador de carreira de estudantes e recém-formados. A partir do "
+        "currículo (em JSON), sugira de 3 a 4 cargos para a pessoa procurar em sites de "
+        "vagas como LinkedIn, Gupy e Indeed. Responda em português do Brasil, no JSON pedido:\n"
+        "- cargo: nome do cargo como aparece nos anúncios, já com o nível "
+        '(ex.: "Estágio em Dados", "Desenvolvedor Júnior Back-end");\n'
+        '- area: a área de atuação (ex.: "Dados", "Desenvolvimento web");\n'
+        "- nota: aderência estimada, de 0 a 100, entre o currículo e as vagas típicas desse cargo;\n"
+        "- por_que: 1 ou 2 frases citando fatos do currículo (e as preferências, se houver) "
+        "que justificam a sugestão;\n"
+        "- busca: o texto para digitar na busca dos sites de vagas, com 2 a 4 palavras, sem "
+        'cidade nem modalidade (ex.: "estágio dados");\n'
+        "- palavras_chave: 3 a 5 termos curtos que aparecem nos anúncios desse cargo, para "
+        "refinar a busca.\n\n"
+        "REGRAS:\n"
+        f"{regra_preferencias}"
+        "- Não invente experiências: o por_que só pode citar o que está no currículo e nas "
+        "preferências.\n"
+        "- Ordene da maior para a menor nota.\n\n"
+        f"{bloco_preferencias}"
+        f"CURRÍCULO:\n{json.dumps(dados_curriculo, ensure_ascii=False)}"
+    )
+    # Um pouco de variação: "Atualizar sugestões" deve trazer ideias novas.
+    return chamar_gemini(prompt, SCHEMA_SUGESTOES, temperatura=0.6)

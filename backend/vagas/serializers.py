@@ -1,11 +1,19 @@
 from rest_framework import serializers
 
-from .models import Analise, Carta, Curriculo, Vaga
+from contas.models import Preferencias, hash_preferencias
+
+from .busca import links_de_busca
+from .compatibilidade import fora_das_preferencias
+from .models import Analise, Carta, Curriculo, Sugestoes, Vaga
+
+SEM_CONTEXTO = object()
 
 
 class VagaSerializer(serializers.ModelSerializer):
     # Nota (0 a 100) da análise mais recente, para o card do kanban. null se ainda não foi analisada.
     ultima_nota = serializers.SerializerMethodField()
+    # O que na vaga vai contra as preferências (ex.: ["Presencial"]); [] = combina ou não dá para saber.
+    fora_das_preferencias = serializers.SerializerMethodField()
 
     class Meta:
         model = Vaga
@@ -18,6 +26,7 @@ class VagaSerializer(serializers.ModelSerializer):
             "descricao",
             "status",
             "ultima_nota",
+            "fora_das_preferencias",
             "criado_em",
             "atualizado_em",
         ]
@@ -29,6 +38,13 @@ class VagaSerializer(serializers.ModelSerializer):
             return vaga.nota_mais_recente
         analise = vaga.analises.first()
         return analise.nota if analise else None
+
+    def get_fora_das_preferencias(self, vaga):
+        # As views passam as preferências no contexto, para não buscar uma vez por vaga.
+        preferencias = self.context.get("preferencias", SEM_CONTEXTO)
+        if preferencias is SEM_CONTEXTO:
+            preferencias = Preferencias.do_usuario(vaga.usuario_id)
+        return fora_das_preferencias(vaga, preferencias)
 
 
 class CurriculoSerializer(serializers.ModelSerializer):
@@ -58,6 +74,10 @@ class ResultadoAnaliseSerializer(serializers.Serializer):
     requisitos_atendidos = serializers.ListField(child=serializers.CharField(), allow_empty=True)
     lacunas = serializers.ListField(child=serializers.CharField(), allow_empty=True)
     sugestoes = serializers.ListField(child=serializers.CharField(), allow_empty=True)
+    # Pontos da vaga que vão contra as preferências do usuário (prompt v2).
+    alertas_preferencias = serializers.ListField(
+        child=serializers.CharField(), allow_empty=True, required=False, default=list
+    )
 
 
 def mudou_desde(objeto, curriculo):
@@ -70,7 +90,7 @@ def mudou_desde(objeto, curriculo):
 
 
 class AnaliseSerializer(serializers.ModelSerializer):
-    # true quando o currículo ou a vaga mudaram depois desta análise.
+    # true quando o currículo, a vaga ou as preferências mudaram depois desta análise.
     desatualizada = serializers.SerializerMethodField()
 
     class Meta:
@@ -87,7 +107,9 @@ class AnaliseSerializer(serializers.ModelSerializer):
         ]
 
     def get_desatualizada(self, analise):
-        return mudou_desde(analise, analise.curriculo)
+        return mudou_desde(analise, analise.curriculo) or (
+            analise.hash_preferencias != hash_preferencias(analise.vaga.usuario_id)
+        )
 
 
 class GerarCartaSerializer(serializers.Serializer):
@@ -152,3 +174,55 @@ class CartaSerializer(serializers.ModelSerializer):
     def get_desatualizada(self, carta):
         curriculo = Curriculo.objects.filter(usuario_id=carta.vaga.usuario_id).first()
         return mudou_desde(carta, curriculo)
+
+
+class CargoSugeridoSerializer(serializers.Serializer):
+    """Um cargo sugerido pela IA (valida o JSON antes de salvar)."""
+
+    cargo = serializers.CharField(max_length=120)
+    area = serializers.CharField(max_length=80, allow_blank=True, required=False, default="")
+    nota = serializers.IntegerField(min_value=0, max_value=100)
+    por_que = serializers.CharField()
+    busca = serializers.CharField(max_length=80)
+    palavras_chave = serializers.ListField(child=serializers.CharField(max_length=60), allow_empty=True)
+
+
+class ResultadoSugestoesSerializer(serializers.Serializer):
+    cargos = CargoSugeridoSerializer(many=True, allow_empty=False)
+
+    def validate_cargos(self, cargos):
+        # Maior nota primeiro, no máximo 6 cards e 6 palavras-chave por card.
+        cargos = sorted(cargos, key=lambda cargo: cargo["nota"], reverse=True)[:6]
+        return [{**cargo, "palavras_chave": cargo["palavras_chave"][:6]} for cargo in cargos]
+
+
+class SugestoesSerializer(serializers.ModelSerializer):
+    """Sugestões salvas, com os links de busca montados a partir das preferências atuais."""
+
+    cargos = serializers.SerializerMethodField()
+    # true quando o currículo ou as preferências mudaram depois que as sugestões foram geradas.
+    desatualizada = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Sugestoes
+        fields = ["cargos", "desatualizada", "modelo_ia", "versao_prompt", "atualizado_em"]
+
+    def preferencias(self, sugestoes):
+        preferencias = self.context.get("preferencias", SEM_CONTEXTO)
+        if preferencias is SEM_CONTEXTO:
+            preferencias = Preferencias.do_usuario(sugestoes.usuario_id)
+        return preferencias
+
+    def get_cargos(self, sugestoes):
+        preferencias = self.preferencias(sugestoes)
+        return [
+            {**cargo, "links": links_de_busca(cargo["busca"], preferencias)}
+            for cargo in sugestoes.cargos
+        ]
+
+    def get_desatualizada(self, sugestoes):
+        curriculo = Curriculo.objects.filter(usuario_id=sugestoes.usuario_id).first()
+        preferencias = self.preferencias(sugestoes)
+        return (curriculo is None or sugestoes.hash_curriculo != curriculo.hash_texto) or (
+            sugestoes.hash_preferencias != (preferencias.hash if preferencias else "")
+        )

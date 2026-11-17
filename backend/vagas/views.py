@@ -5,10 +5,11 @@ from rest_framework import status
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
+from contas.models import Preferencias
 from contas.serializers import UsuarioSerializer
 
 from . import ia
-from .models import Analise, Carta, Curriculo, Vaga
+from .models import Analise, Carta, Curriculo, Sugestoes, Vaga
 from .serializers import (
     AnaliseSerializer,
     CartaSerializer,
@@ -16,8 +17,15 @@ from .serializers import (
     GerarCartaSerializer,
     ResultadoAnaliseSerializer,
     ResultadoCartaSerializer,
+    ResultadoSugestoesSerializer,
+    SugestoesSerializer,
     VagaSerializer,
 )
+
+
+def preferencias_para_ia(preferencias):
+    """O dict das preferências para o prompt, ou None se o usuário não preencheu nada."""
+    return preferencias.para_ia() if preferencias else None
 
 STATUS_VALIDOS = [valor for valor, _ in Vaga.Status.choices]
 
@@ -36,11 +44,12 @@ def vagas_do_usuario(usuario):
 
 @api_view(["GET", "POST"])
 def api_vagas(request):
+    contexto = {"preferencias": Preferencias.do_usuario(request.user)}
     if request.method == "POST":
         serializer = VagaSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         vaga = serializer.save(usuario=request.user)
-        return Response(VagaSerializer(vaga).data, status=status.HTTP_201_CREATED)
+        return Response(VagaSerializer(vaga, context=contexto).data, status=status.HTTP_201_CREATED)
 
     vagas = vagas_do_usuario(request.user)
     filtro = request.query_params.get("status")
@@ -51,7 +60,7 @@ def api_vagas(request):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         vagas = vagas.filter(status=filtro)
-    return Response(VagaSerializer(vagas, many=True).data)
+    return Response(VagaSerializer(vagas, many=True, context=contexto).data)
 
 
 @api_view(["GET", "PUT", "PATCH", "DELETE"])
@@ -75,7 +84,8 @@ def api_vaga(request, vaga_id):
         serializer.save()
         vaga = vagas_do_usuario(request.user).get(id=vaga_id)
 
-    return Response(VagaSerializer(vaga).data)
+    contexto = {"preferencias": Preferencias.do_usuario(request.user)}
+    return Response(VagaSerializer(vaga, context=contexto).data)
 
 
 def erro_da_ia(mensagem, codigo="formato_invalido"):
@@ -135,15 +145,21 @@ def api_analise(request, vaga_id):
             status=status.HTTP_400_BAD_REQUEST,
         )
 
-    # Cache da análise: mesmo currículo + mesma vaga = mesma resposta, sem chamar a IA.
+    # Cache da análise: mesmo currículo + mesma vaga + mesmas preferências = mesma resposta.
+    preferencias = Preferencias.do_usuario(request.user)
     hash_curriculo, hash_vaga = curriculo.hash_texto, vaga.hash_conteudo
-    analise = vaga.analises.filter(hash_curriculo=hash_curriculo, hash_vaga=hash_vaga).first()
+    hash_pref = preferencias.hash if preferencias else ""
+    analise = vaga.analises.filter(
+        hash_curriculo=hash_curriculo, hash_vaga=hash_vaga, hash_preferencias=hash_pref
+    ).first()
     if analise:
         return Response(AnaliseSerializer(analise).data)
 
     try:
         estruturar_se_preciso(curriculo)
-        resposta = ia.analisar_vaga(curriculo.dados, vaga)
+        resposta = ia.analisar_vaga(
+            curriculo.dados, vaga, preferencias=preferencias_para_ia(preferencias)
+        )
     except ia.ErroIA as erro:
         return erro_da_ia(erro, erro.codigo)
 
@@ -156,6 +172,7 @@ def api_analise(request, vaga_id):
         curriculo=curriculo,
         hash_curriculo=hash_curriculo,
         hash_vaga=hash_vaga,
+        hash_preferencias=hash_pref,
         nota=resultado.validated_data["nota"],
         resultado=resultado.validated_data,
         modelo_ia=settings.GEMINI_MODEL,
@@ -205,7 +222,13 @@ def api_carta(request, vaga_id):
     try:
         estruturar_se_preciso(curriculo)
         resposta = ia.escrever_carta(
-            curriculo.dados, vaga, nome, tom, tamanho, analise.resultado if analise else None
+            curriculo.dados,
+            vaga,
+            nome,
+            tom,
+            tamanho,
+            analise.resultado if analise else None,
+            preferencias=preferencias_para_ia(Preferencias.do_usuario(request.user)),
         )
     except ia.ErroIA as erro:
         return erro_da_ia(erro, erro.codigo)
@@ -230,3 +253,47 @@ def api_carta(request, vaga_id):
         },
     )
     return Response(CartaSerializer(carta).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET", "POST"])
+def api_sugestoes(request):
+    """GET: últimas sugestões de busca. POST: a IA gera sugestões novas (substitui as anteriores)."""
+    preferencias = Preferencias.do_usuario(request.user)
+    contexto = {"preferencias": preferencias}
+
+    if request.method == "GET":
+        sugestoes = Sugestoes.objects.filter(usuario=request.user).first()
+        if sugestoes is None:
+            return Response({"detail": "Você ainda não pediu sugestões de busca."}, status=404)
+        return Response(SugestoesSerializer(sugestoes, context=contexto).data)
+
+    curriculo = Curriculo.objects.filter(usuario=request.user).first()
+    if curriculo is None:
+        return Response(
+            {"detail": "Cadastre seu currículo antes de pedir sugestões de busca."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        estruturar_se_preciso(curriculo)
+        resposta = ia.sugerir_buscas(curriculo.dados, preferencias_para_ia(preferencias))
+    except ia.ErroIA as erro:
+        return erro_da_ia(erro, erro.codigo)
+
+    resultado = ResultadoSugestoesSerializer(data=resposta)
+    if not resultado.is_valid():
+        return erro_da_ia("A IA devolveu sugestões fora do formato esperado. Tente de novo.")
+
+    sugestoes, _ = Sugestoes.objects.update_or_create(
+        usuario=request.user,
+        defaults={
+            "cargos": resultado.validated_data["cargos"],
+            "hash_curriculo": curriculo.hash_texto,
+            "hash_preferencias": preferencias.hash if preferencias else "",
+            "modelo_ia": settings.GEMINI_MODEL,
+            "versao_prompt": ia.VERSAO_PROMPT_SUGESTOES,
+        },
+    )
+    return Response(
+        SugestoesSerializer(sugestoes, context=contexto).data, status=status.HTTP_201_CREATED
+    )
