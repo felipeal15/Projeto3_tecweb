@@ -8,7 +8,8 @@ from rest_framework.response import Response
 from contas.models import Preferencias
 from contas.serializers import UsuarioSerializer
 
-from . import ia
+from . import ia, vagas_reais
+from .compatibilidade import fora_das_preferencias, nome_da_cidade
 from .models import Analise, Carta, Curriculo, Sugestoes, Vaga
 from .serializers import (
     AnaliseSerializer,
@@ -17,6 +18,7 @@ from .serializers import (
     GerarCartaSerializer,
     ResultadoAnaliseSerializer,
     ResultadoCartaSerializer,
+    ResultadoRankingSerializer,
     ResultadoSugestoesSerializer,
     SugestoesSerializer,
     VagaSerializer,
@@ -297,3 +299,77 @@ def api_sugestoes(request):
     return Response(
         SugestoesSerializer(sugestoes, context=contexto).data, status=status.HTTP_201_CREATED
     )
+
+
+def termo_padrao(usuario, preferencias):
+    """Busca de quem abre "Vagas para você" sem digitar nada: a melhor sugestão da IA ou a 1ª área."""
+    sugestoes = Sugestoes.objects.filter(usuario=usuario).first()
+    if sugestoes and sugestoes.cargos:
+        return sugestoes.cargos[0]["busca"]
+    if preferencias and preferencias.areas:
+        nivel = {"estagio": "estágio", "trainee": "trainee", "junior": "júnior"}
+        prefixo = nivel.get(preferencias.tipos[0], "") if preferencias.tipos else ""
+        return f"{prefixo} {preferencias.areas[0]}".strip()
+    return ""
+
+
+@api_view(["GET"])
+def api_vagas_reais(request):
+    """GET ?q=termo: vagas reais do Adzuna, ranqueadas pela IA se o usuário tem currículo."""
+    preferencias = Preferencias.do_usuario(request.user)
+    termo = request.query_params.get("q", "").strip()[:80] or termo_padrao(request.user, preferencias)
+    if not termo:
+        return Response(
+            {"detail": "Digite o que você procura (ex.: estágio dados)."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    # Mesma regra dos links de busca: quem só quer vaga remota não filtra por cidade.
+    so_remoto = preferencias is not None and set(preferencias.modalidades) == {"remoto"}
+    cidade = nome_da_cidade(preferencias.cidade) if preferencias and not so_remoto else ""
+
+    try:
+        vagas = vagas_reais.buscar(f"{termo} remoto" if so_remoto else termo, cidade)
+    except vagas_reais.ErroVagas as erro:
+        return erro_da_ia(erro, erro.codigo)
+
+    # Vagas já salvas no kanban (pelo link) mostram "Salva" em vez do botão.
+    salvas = dict(
+        Vaga.objects.filter(usuario=request.user)
+        .exclude(link="")
+        .values_list("link", "id")
+    )
+    for vaga in vagas:
+        vaga["salva_id"] = salvas.get(vaga["link"]) if vaga["link"] else None
+        vaga["fora_das_preferencias"] = fora_das_preferencias(
+            Vaga(titulo=vaga["titulo"], local=vaga["local"], descricao=vaga["descricao"]),
+            preferencias,
+        )
+        vaga["nota"] = vaga["motivo"] = None
+
+    resposta = {"termo": termo, "cidade": cidade, "vagas": vagas, "ranqueada": False, "erro_ranking": ""}
+    curriculo = Curriculo.objects.filter(usuario=request.user).first()
+    if not vagas or curriculo is None:
+        return Response(resposta)
+
+    # ponytail: uma chamada à IA por busca, sem cache; guardar o ranking por (currículo, ids) se a cota apertar.
+    # Se a IA falhar, a lista volta sem notas em vez de dar erro.
+    try:
+        estruturar_se_preciso(curriculo)
+        ranking = ResultadoRankingSerializer(
+            data=ia.ranquear_vagas(curriculo.dados, vagas, preferencias_para_ia(preferencias))
+        )
+        if not ranking.is_valid():
+            raise ia.ErroIA("A IA devolveu o ranking fora do formato esperado.", "formato_invalido")
+    except ia.ErroIA as erro:
+        resposta["erro_ranking"] = str(erro)
+        return Response(resposta)
+
+    notas = {item["id"]: item for item in ranking.validated_data["vagas"]}
+    for vaga in vagas:
+        if vaga["id"] in notas:
+            vaga["nota"], vaga["motivo"] = notas[vaga["id"]]["nota"], notas[vaga["id"]]["motivo"]
+    vagas.sort(key=lambda vaga: -1 if vaga["nota"] is None else vaga["nota"], reverse=True)
+    resposta.update(
+        ranqueada=True, modelo_ia=settings.GEMINI_MODEL, versao_prompt=ia.VERSAO_PROMPT_RANKING
+    )
+    return Response(resposta)

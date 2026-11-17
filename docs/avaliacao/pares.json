@@ -1,0 +1,100 @@
+{
+  "_sobre": "Pares currículo × vaga para comparar versões do prompt da análise (python manage.py comparar_prompts). Currículos e vagas são fictícios. nota_referencia = nota que a equipe espera de um recrutador humano; revise antes de rodar.",
+  "curriculos": {
+    "ana": {
+      "resumo": "Estudante de Engenharia de Computação (3º ano) com foco em dados.",
+      "formacao": [{"curso": "Engenharia de Computação", "instituicao": "Insper", "periodo": "2024–2028"}],
+      "experiencias": [
+        {"cargo": "Monitora de Programação em Python", "empresa": "Insper", "periodo": "2025", "atividades": ["Tirava dúvidas de Python de 60 alunos", "Corrigia exercícios"]}
+      ],
+      "habilidades": ["Python", "pandas", "SQL", "Git", "Matplotlib"],
+      "idiomas": ["Inglês avançado"],
+      "projetos": ["Análise de dados abertos de mobilidade de São Paulo com pandas e SQL, com painel em Matplotlib", "API de lista de tarefas em Flask"]
+    },
+    "bruno": {
+      "resumo": "Estudante de Administração (4º ano) com estágio em finanças.",
+      "formacao": [{"curso": "Administração de Empresas", "instituicao": "FGV EAESP", "periodo": "2023–2026"}],
+      "experiencias": [
+        {"cargo": "Estagiário de Finanças", "empresa": "Grupo Alfa Varejo", "periodo": "2025–2026", "atividades": ["Conciliação bancária", "Relatórios mensais de despesas em Excel", "Apoio ao orçamento anual"]}
+      ],
+      "habilidades": ["Excel avançado (PROCV, tabela dinâmica)", "Power BI básico", "Contabilidade"],
+      "idiomas": ["Inglês intermediário", "Espanhol avançado"],
+      "projetos": ["Empresa júnior: consultoria de precificação para uma padaria"]
+    },
+    "carla": {
+      "resumo": "Bacharel em Ciência da Computação com 1 ano de estágio full-stack.",
+      "formacao": [{"curso": "Ciência da Computação", "instituicao": "USP", "periodo": "2022–2026"}],
+      "experiencias": [
+        {"cargo": "Estagiária de Desenvolvimento Full-stack", "empresa": "Startup Rota", "periodo": "2025–2026", "atividades": ["Telas em React com TypeScript", "APIs REST em Node.js com PostgreSQL", "Deploy com Docker"]}
+      ],
+      "habilidades": ["JavaScript", "TypeScript", "React", "Node.js", "PostgreSQL", "Docker", "Git"],
+      "idiomas": ["Inglês avançado"],
+      "projetos": ["Contribuições em uma biblioteca open source de componentes React"]
+    },
+    "diego": {
+      "resumo": "Estudante de Design (3º ano) focado em UX.",
+      "formacao": [{"curso": "Design", "instituicao": "Universidade Presbiteriana Mackenzie", "periodo": "2024–2027"}],
+      "experiencias": [],
+      "habilidades": ["Figma", "Pesquisa com usuários", "Prototipação", "Design de interfaces", "Canva"],
+      "idiomas": ["Inglês intermediário"],
+      "projetos": ["Redesenho do app de uma biblioteca municipal, com 8 entrevistas e teste de usabilidade", "Identidade visual para um coletivo de música"]
+    }
+  },
+  "pares": [
+    {
+      "id": 1, "curriculo": "ana", "nota_referencia": 85,
+      "vaga": {"titulo": "Estágio em Dados", "empresa": "Banco Horizonte", "local": "São Paulo · Híbrido",
+               "descricao": "Requisitos: cursando Engenharia, Computação ou Estatística; Python (pandas) e SQL; inglês intermediário. Desejável: Power BI. Atividades: montar bases e análises para o time de crédito."}
+    },
+    {
+      "id": 2, "curriculo": "ana", "nota_referencia": 25,
+      "vaga": {"titulo": "Desenvolvedor Back-end Júnior", "empresa": "Fintech Prisma", "local": "Remoto",
+               "descricao": "Requisitos: 2 anos de experiência com Java e Spring Boot; microsserviços; mensageria com Kafka; AWS. Desejável: Kubernetes."}
+    },
+    {
+      "id": 3, "curriculo": "ana", "nota_referencia": 65,
+      "vaga": {"titulo": "Estágio em Engenharia de Software", "empresa": "Loja Online Ponto", "local": "São Paulo · Presencial",
+               "descricao": "Requisitos: lógica de programação; Python ou Java; Git. Desejável: testes automatizados, Docker e experiência com APIs REST. Atividades: manutenção do sistema de pedidos."}
+    },
+    {
+      "id": 4, "curriculo": "bruno", "nota_referencia": 85,
+      "vaga": {"titulo": "Estágio em FP&A", "empresa": "Indústria Delta", "local": "Barueri · Híbrido",
+               "descricao": "Requisitos: cursando Administração, Economia ou Engenharia; Excel avançado; inglês intermediário. Desejável: Power BI e experiência com orçamento. Atividades: acompanhar orçado x realizado e preparar relatórios."}
+    },
+    {
+      "id": 5, "curriculo": "bruno", "nota_referencia": 20,
+      "vaga": {"titulo": "Estágio em Ciência de Dados", "empresa": "Saúde Mais", "local": "São Paulo · Híbrido",
+               "descricao": "Requisitos: Python, estatística e modelos de machine learning (scikit-learn); SQL. Desejável: experiência com séries temporais."}
+    },
+    {
+      "id": 6, "curriculo": "bruno", "nota_referencia": 60,
+      "vaga": {"titulo": "Trainee de Operações e Supply Chain", "empresa": "Atacadista Norte", "local": "Campinas · Presencial",
+               "descricao": "Requisitos: formado entre 2024 e 2026 em Administração ou Engenharia; Excel avançado; inglês intermediário; disponibilidade para mudar de cidade. Desejável: SQL e vivência em logística."}
+    },
+    {
+      "id": 7, "curriculo": "carla", "nota_referencia": 90,
+      "vaga": {"titulo": "Desenvolvedora Front-end Júnior", "empresa": "Agência Pixel", "local": "Remoto",
+               "descricao": "Requisitos: React e TypeScript; consumo de APIs REST; Git. Desejável: testes com Jest e experiência com Node.js."}
+    },
+    {
+      "id": 8, "curriculo": "carla", "nota_referencia": 40,
+      "vaga": {"titulo": "Engenheiro de Dados Júnior", "empresa": "Varejo Max", "local": "São Paulo · Híbrido",
+               "descricao": "Requisitos: Python; Spark; orquestração com Airflow; SQL avançado; AWS (S3, Glue). Desejável: dbt."}
+    },
+    {
+      "id": 9, "curriculo": "diego", "nota_referencia": 85,
+      "vaga": {"titulo": "Estágio em UX/UI Design", "empresa": "App Saúde Já", "local": "São Paulo · Híbrido",
+               "descricao": "Requisitos: cursando Design ou áreas afins; Figma; noções de pesquisa com usuários; portfólio. Desejável: inglês e design system."}
+    },
+    {
+      "id": 10, "curriculo": "diego", "nota_referencia": 25,
+      "vaga": {"titulo": "Estágio em Desenvolvimento Front-end", "empresa": "Sistema Escola", "local": "Remoto",
+               "descricao": "Requisitos: HTML, CSS e JavaScript; React; Git. Desejável: noções de UX."}
+    },
+    {
+      "id": 11, "curriculo": "diego", "nota_referencia": 55,
+      "vaga": {"titulo": "Estágio em Marketing Digital", "empresa": "Moda Leve", "local": "São Paulo · Presencial",
+               "descricao": "Requisitos: cursando Marketing, Publicidade ou Design; criação de peças para redes sociais (Canva ou Figma); boa escrita. Desejável: Google Analytics e gestão de anúncios no Meta Ads."}
+    }
+  ]
+}

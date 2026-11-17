@@ -226,3 +226,15 @@ class SugestoesSerializer(serializers.ModelSerializer):
         return (curriculo is None or sugestoes.hash_curriculo != curriculo.hash_texto) or (
             sugestoes.hash_preferencias != (preferencias.hash if preferencias else "")
         )
+
+
+class NotaVagaSerializer(serializers.Serializer):
+    id = serializers.CharField()
+    nota = serializers.IntegerField(min_value=0, max_value=100)
+    motivo = serializers.CharField(allow_blank=True)
+
+
+class ResultadoRankingSerializer(serializers.Serializer):
+    """Valida o ranking da IA para as vagas reais (ia.ranquear_vagas)."""
+
+    vagas = NotaVagaSerializer(many=True)

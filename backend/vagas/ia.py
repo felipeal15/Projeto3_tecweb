@@ -17,6 +17,7 @@ VERSAO_PROMPT = "v2"
 # carta-v2: a carta usa as áreas e a stack de interesse como motivação.
 VERSAO_PROMPT_CARTA = "carta-v2"
 VERSAO_PROMPT_SUGESTOES = "sugestoes-v1"
+VERSAO_PROMPT_RANKING = "ranking-v1"
 
 # Tempo máximo de cada chamada. O gunicorn do deploy espera até 120 s
 # (ver README), então duas tentativas de 50 s ainda cabem.
@@ -220,8 +221,34 @@ def estruturar_curriculo(texto):
     return chamar_gemini(prompt, SCHEMA_CURRICULO)
 
 
-def analisar_vaga(dados_curriculo, vaga, preferencias=None):
-    """`preferencias` (opcional) é o dict de Preferencias.para_ia(): vira alertas, não muda a nota."""
+# Como pedir a nota em cada versão do prompt da análise. A v3 (com escala explícita)
+# entrou para a comparação do README (python manage.py comparar_prompts); o app usa VERSAO_PROMPT.
+INSTRUCAO_NOTA = {
+    "v2": (
+        "- nota: aderência de 0 a 100 (100 = atende tudo que a vaga pede);\n"
+        "- resumo: 2 a 3 frases dizendo se vale se candidatar e por quê;\n"
+        "- requisitos_atendidos: requisitos da vaga que o currículo comprova;\n"
+    ),
+    "v3": (
+        "- nota: aderência de 0 a 100. Antes de dar a nota, separe os requisitos da vaga em "
+        'obrigatórios (o que ela exige) e desejáveis ("diferencial", "é um plus"). Use esta escala:\n'
+        "  85 a 100: o currículo comprova todos os obrigatórios e a maior parte dos desejáveis;\n"
+        "  65 a 84: comprova quase todos os obrigatórios;\n"
+        "  40 a 64: comprova parte dos obrigatórios e tem lacunas importantes;\n"
+        "  0 a 39: não comprova a maioria dos obrigatórios ou é de outra área.\n"
+        "  Em vaga de estágio, disciplinas e projetos acadêmicos contam como experiência;\n"
+        "- resumo: 2 a 3 frases dizendo se vale se candidatar e por quê;\n"
+        "- requisitos_atendidos: requisitos da vaga que o currículo comprova, cada um com a "
+        'evidência do currículo (ex.: "SQL: projeto de BI na disciplina de Banco de Dados");\n'
+    ),
+}
+
+
+def analisar_vaga(dados_curriculo, vaga, preferencias=None, versao=VERSAO_PROMPT):
+    """`preferencias` (opcional) é o dict de Preferencias.para_ia(): vira alertas, não muda a nota.
+
+    `vaga` só precisa de titulo, empresa, local e descricao (serve um objeto não salvo).
+    """
     if preferencias:
         instrucao_alertas = (
             "- alertas_preferencias: pontos da vaga que vão contra as preferências do candidato "
@@ -244,9 +271,7 @@ def analisar_vaga(dados_curriculo, vaga, preferencias=None):
         "Você é um recrutador que ajuda estudantes a decidir se vale a pena se "
         "candidatar a uma vaga. Compare o currículo (em JSON) com a vaga e responda "
         "em português, no JSON pedido:\n"
-        "- nota: aderência de 0 a 100 (100 = atende tudo que a vaga pede);\n"
-        "- resumo: 2 a 3 frases dizendo se vale se candidatar e por quê;\n"
-        "- requisitos_atendidos: requisitos da vaga que o currículo comprova;\n"
+        f"{INSTRUCAO_NOTA[versao]}"
         "- lacunas: requisitos da vaga que o currículo não mostra;\n"
         "- sugestoes: ações concretas para melhorar a candidatura;\n"
         f"{instrucao_alertas}"
@@ -371,3 +396,56 @@ def sugerir_buscas(dados_curriculo, preferencias=None):
     )
     # Um pouco de variação: "Atualizar sugestões" deve trazer ideias novas.
     return chamar_gemini(prompt, SCHEMA_SUGESTOES, temperatura=0.6)
+
+
+SCHEMA_RANKING = {
+    "type": "OBJECT",
+    "properties": {
+        "vagas": {
+            "type": "ARRAY",
+            "items": {
+                "type": "OBJECT",
+                "properties": {
+                    "id": {"type": "STRING"},
+                    "nota": {"type": "INTEGER"},
+                    "motivo": {"type": "STRING"},
+                },
+                "required": ["id", "nota", "motivo"],
+            },
+        },
+    },
+    "required": ["vagas"],
+}
+
+
+def ranquear_vagas(dados_curriculo, vagas, preferencias=None):
+    """Nota de aderência rápida para cada vaga da lista ([{id, titulo, empresa, local, descricao}]).
+
+    Uma chamada só para a lista inteira; a análise completa continua sendo a do kanban.
+    """
+    resumo_vagas = [
+        {chave: vaga[chave] for chave in ("id", "titulo", "empresa", "local", "descricao")}
+        for vaga in vagas
+    ]
+    bloco_preferencias = ""
+    if preferencias:
+        bloco_preferencias = (
+            f"PREFERÊNCIAS DO CANDIDATO:\n{json.dumps(preferencias, ensure_ascii=False)}\n\n"
+        )
+    prompt = (
+        "Você é um recrutador que ajuda um estudante a escolher a quais vagas se candidatar. "
+        "Para CADA vaga da lista, dê uma nota de aderência do currículo (em JSON) à vaga e "
+        "explique em uma frase curta. Responda em português, no JSON pedido:\n"
+        "- id: o id da vaga, igual ao da lista;\n"
+        "- nota: 0 a 100 (100 = o currículo comprova tudo o que a vaga pede). A descrição é "
+        "só um trecho do anúncio: julgue pelo que está escrito, sem supor requisitos;\n"
+        '- motivo: uma frase com o principal ponto a favor ou contra (ex.: "Pede Python e '
+        'SQL, que você usou no projeto de BI; falta Power BI.").\n'
+        "Baseie-se só no currículo e na vaga: não suponha experiências que não foram escritas. "
+        "Se a vaga for contra as preferências (nível, modalidade, cidade, o que evitar), diga "
+        "isso no motivo, mas a nota mede só o currículo.\n\n"
+        f"{bloco_preferencias}"
+        f"CURRÍCULO:\n{json.dumps(dados_curriculo, ensure_ascii=False)}\n\n"
+        f"VAGAS:\n{json.dumps(resumo_vagas, ensure_ascii=False)}"
+    )
+    return chamar_gemini(prompt, SCHEMA_RANKING)

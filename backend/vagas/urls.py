@@ -9,4 +9,5 @@ urlpatterns = [
     path("vagas/<int:vaga_id>/carta/", views.api_carta),
     path("curriculo/", views.api_curriculo),
     path("sugestoes/", views.api_sugestoes),
+    path("vagas-reais/", views.api_vagas_reais),
 ]

@@ -38,6 +38,11 @@ GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 # Modelo do Gemini usado nas chamadas (troque se o Google aposentar este).
 GEMINI_MODEL = os.environ.get("GEMINI_MODEL") or "gemini-3.5-flash-lite"
 
+# Credenciais da API de vagas do Adzuna (https://developer.adzuna.com), usada em "Vagas para você".
+# Vazias = a tela avisa que a busca de vagas reais não está configurada.
+ADZUNA_APP_ID = os.environ.get("ADZUNA_APP_ID", "")
+ADZUNA_APP_KEY = os.environ.get("ADZUNA_APP_KEY", "")
+
 
 INSTALLED_APPS = [
     "django.contrib.admin",
