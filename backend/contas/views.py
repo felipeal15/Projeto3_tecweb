@@ -8,7 +8,13 @@ from rest_framework.decorators import (
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from .serializers import CadastroSerializer, LoginSerializer, UsuarioSerializer
+from .models import Preferencias
+from .serializers import (
+    CadastroSerializer,
+    LoginSerializer,
+    PreferenciasSerializer,
+    UsuarioSerializer,
+)
 
 
 def resposta_com_token(usuario, codigo):
@@ -48,3 +54,17 @@ def logout(request):
 def eu(request):
     """Devolve o usuário dono do token. O React usa para saber se ainda está logado."""
     return Response(UsuarioSerializer(request.user).data)
+
+
+@api_view(["GET", "PUT"])
+def preferencias(request):
+    """GET: preferências do usuário (vazias, com atualizado_em null, se nunca salvou). PUT: salva."""
+    atuais = Preferencias.do_usuario(request.user)
+
+    if request.method == "GET":
+        return Response(PreferenciasSerializer(atuais or Preferencias(usuario=request.user)).data)
+
+    serializer = PreferenciasSerializer(atuais, data=request.data)
+    serializer.is_valid(raise_exception=True)
+    serializer.save(usuario=request.user)
+    return Response(serializer.data)

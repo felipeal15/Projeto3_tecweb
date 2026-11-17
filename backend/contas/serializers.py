@@ -4,9 +4,54 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from rest_framework import serializers
 
-from .models import Perfil
+from .models import Perfil, Preferencias
 
 User = get_user_model()
+
+
+class ListaDeTextos(serializers.ListField):
+    """Lista de textos curtos (áreas, stack): tira espaços, vazios e repetidos."""
+
+    def __init__(self, tamanho_item=40, **kwargs):
+        self.tamanho_item = tamanho_item
+        super().__init__(child=serializers.CharField(allow_blank=True), **kwargs)
+
+    def to_internal_value(self, data):
+        limpos, vistos = [], set()
+        for item in super().to_internal_value(data):
+            item = " ".join(item.split())
+            if len(item) > self.tamanho_item:
+                raise serializers.ValidationError(
+                    f"Cada item pode ter no máximo {self.tamanho_item} caracteres."
+                )
+            # "python" e "Python" contam como o mesmo item.
+            if item and item.casefold() not in vistos:
+                vistos.add(item.casefold())
+                limpos.append(item)
+        return limpos
+
+
+class PreferenciasSerializer(serializers.ModelSerializer):
+    areas = ListaDeTextos(max_length=10, required=False)
+    stack = ListaDeTextos(max_length=15, required=False)
+    tipos = serializers.ListField(
+        child=serializers.ChoiceField(choices=Preferencias.Tipo.choices), required=False
+    )
+    modalidades = serializers.ListField(
+        child=serializers.ChoiceField(choices=Preferencias.Modalidade.choices), required=False
+    )
+
+    class Meta:
+        model = Preferencias
+        fields = ["areas", "tipos", "modalidades", "cidade", "stack", "evitar", "atualizado_em"]
+        # atualizado_em = null: o usuário nunca salvou (a tela mostra o passo 3 do onboarding).
+        read_only_fields = ["atualizado_em"]
+
+    def validate_tipos(self, tipos):
+        return list(dict.fromkeys(tipos))  # tira repetidos mantendo a ordem
+
+    def validate_modalidades(self, modalidades):
+        return list(dict.fromkeys(modalidades))
 
 
 class UsuarioSerializer(serializers.ModelSerializer):
