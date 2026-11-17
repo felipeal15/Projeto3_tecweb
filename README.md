@@ -48,12 +48,12 @@ Níveis do produto: **Núcleo** (análise vaga × currículo), **Meio-termo** (p
 - [X] Testes do backend: autenticação, vagas e análise com a IA simulada (mock) (M)
 
 **Meio-termo: preferências e sugestões**
-- [ ] Modelo e endpoint de preferências (áreas, tipo da vaga, modalidade, cidade, stack, o que evitar) (S)
-- [ ] Tela de preferências no perfil (M)
-- [ ] Usar as preferências no prompt da análise e da carta (S)
-- [ ] Filtro do kanban pelas preferências (S)
-- [ ] IA: sugerir áreas, cargos e palavras-chave de busca a partir do currículo e das preferências (M)
-- [ ] Gerar links de busca prontos com essas palavras-chave (S)
+- [X] Modelo e endpoint de preferências (áreas, tipo da vaga, modalidade, cidade, stack, o que evitar) (S)
+- [X] Tela de preferências no perfil (M)
+- [X] Usar as preferências no prompt da análise e da carta (S)
+- [X] Filtro do kanban pelas preferências (S)
+- [X] IA: sugerir áreas, cargos e palavras-chave de busca a partir do currículo e das preferências (M)
+- [X] Gerar links de busca prontos com essas palavras-chave (S)
 
 **Extra (só se sobrar tempo; é o primeiro item a cortar)**
 - [ ] Verificar cobertura para o Brasil e limites gratuitos de uma API pública de vagas (S)
@@ -83,12 +83,14 @@ Níveis do produto: **Núcleo** (análise vaga × currículo), **Meio-termo** (p
 
 ```
 backend/    Django REST Framework (projeto "encaixe")
-  contas/   Perfil, cadastro, login e logout
-  vagas/    Curriculo, Vaga, Analise, Carta, o CRUD de vagas e a IA (ia.py)
+  contas/   Perfil, Preferencias, cadastro, login e logout
+  vagas/    Curriculo, Vaga, Analise, Carta, Sugestoes, o CRUD de vagas e a IA (ia.py)
+            compatibilidade.py (filtro do kanban) e busca.py (links do LinkedIn, Gupy e Indeed)
   build.sh  build do deploy no Render
 frontend/   React (Vite) + Tailwind
   src/api.js            axios já com o endereço do backend e o token
   src/vagas.js          status do kanban, nível da nota e datas
+  src/preferencias.js   opções e textos das preferências (tela, filtro e sugestões)
   src/auth/             login no React (useAuth, RotaProtegida)
   src/components/       Layout, formulário, cabeçalho, aviso de privacidade, carregamento da IA...
   src/pages/            uma tela por arquivo
@@ -99,7 +101,7 @@ docs/       fluxo de telas
 
 ![Fluxo de telas do Encaixe](docs/fluxo-de-telas.png)
 
-Telas prontas: login, cadastro, currículo, minhas vagas (kanban), nova vaga, análise da vaga e carta de apresentação. Sugestões de busca, vagas para você e preferências são do meio-termo e do extra da Sprint 2.
+Telas prontas: login, cadastro, currículo, preferências, minhas vagas (kanban com filtro por preferências), nova vaga, análise da vaga, carta de apresentação e sugestões de busca. Vagas para você é do extra da Sprint 2.
 
 ## Como rodar localmente
 
@@ -159,7 +161,7 @@ Todas as rotas, menos cadastro e login, exigem o cabeçalho `Authorization: Toke
 | PUT / PATCH | `/api/vagas/<id>/` | edita a vaga (PATCH `{status}` move no kanban) | 200 |
 | DELETE | `/api/vagas/<id>/` | apaga a vaga | 204 |
 
-Status da vaga: `interessado`, `candidatado`, `entrevista`, `oferta`, `encerrada`. Cada vaga traz `ultima_nota` (0 a 100, ou `null` se ainda não foi analisada). Erros de validação voltam com 400 no formato `{campo: ["mensagem"]}`; vaga de outro usuário responde 404.
+Status da vaga: `interessado`, `candidatado`, `entrevista`, `oferta`, `encerrada`. Cada vaga traz `ultima_nota` (0 a 100, ou `null` se ainda não foi analisada) e `fora_das_preferencias` (ver [Preferências](#preferências-e-sugestões-de-busca)). Erros de validação voltam com 400 no formato `{campo: ["mensagem"]}`; vaga de outro usuário responde 404.
 
 ### Currículo e análise com IA
 
@@ -170,9 +172,9 @@ Status da vaga: `interessado`, `candidatado`, `entrevista`, `oferta`, `encerrada
 | POST | `/api/vagas/<id>/analise/` | analisa a vaga com a IA | 201 (nova) ou 200 (do cache) |
 | GET | `/api/vagas/<id>/analise/` | última análise da vaga | 200 ou 404 |
 
-A análise volta como `{id, vaga, nota, resultado, desatualizada, modelo_ia, versao_prompt, criado_em}`, com `resultado = {nota, resumo, requisitos_atendidos[], lacunas[], sugestoes[]}`. O JSON da IA é validado pelo `ResultadoAnaliseSerializer` antes de ser salvo.
+A análise volta como `{id, vaga, nota, resultado, desatualizada, modelo_ia, versao_prompt, criado_em}`, com `resultado = {nota, resumo, requisitos_atendidos[], lacunas[], sugestoes[], alertas_preferencias[]}`. O JSON da IA é validado pelo `ResultadoAnaliseSerializer` antes de ser salvo.
 
-Cache: o currículo só é reestruturado quando o texto muda, e a análise só chama a IA de novo quando o currículo ou o cargo/empresa/descrição da vaga mudam (chave = hashes SHA-256). Falha da IA (sem chave, limite de requisições, tempo esgotado, JSON fora do formato) responde 502 com `{detail, codigo}` (ver [Erros da IA](#erros-da-ia)). POST de análise sem currículo cadastrado responde 400.
+Cache: o currículo só é reestruturado quando o texto muda, e a análise só chama a IA de novo quando o currículo, o cargo/empresa/descrição da vaga ou as preferências mudam (chave = hashes SHA-256). Falha da IA (sem chave, limite de requisições, tempo esgotado, JSON fora do formato) responde 502 com `{detail, codigo}` (ver [Erros da IA](#erros-da-ia)). POST de análise sem currículo cadastrado responde 400.
 
 ### Carta de apresentação
 
@@ -183,6 +185,24 @@ Cache: o currículo só é reestruturado quando o texto muda, e a análise só c
 | PATCH | `/api/vagas/<id>/carta/` | salva a edição do usuário: `{texto}` (até 6000 caracteres) | 200 |
 
 `tom`: `formal`, `neutro` (padrão) ou `entusiasmado`. `tamanho`: `curta` (padrão) ou `media`. A resposta é `{id, vaga, texto, fatos_usados[], tom, tamanho, editada, desatualizada, modelo_ia, versao_prompt, criado_em, atualizado_em}`. O prompt manda a IA usar só fatos do currículo estruturado e devolver em `fatos_usados` os fatos que ela usou, para o usuário conferir; se a vaga já foi analisada, as lacunas da análise entram no prompt para a carta tratar com honestidade o que falta. A carta não tem cache: cada POST é uma versão nova (substitui a anterior, inclusive as edições). `editada` = o usuário mudou o texto da IA; `desatualizada` = o currículo ou a vaga mudaram depois que a carta foi gerada (a análise tem o mesmo campo).
+
+### Preferências e sugestões de busca
+
+| Método | Rota | O que faz | Resposta |
+| --- | --- | --- | --- |
+| GET | `/api/preferencias/` | preferências do usuário (tudo vazio e `atualizado_em: null` se nunca salvou) | 200 |
+| PUT | `/api/preferencias/` | salva `{areas[], tipos[], modalidades[], cidade, stack[], evitar}` | 200 |
+| GET | `/api/sugestoes/` | últimas sugestões de busca | 200 ou 404 |
+| POST | `/api/sugestoes/` | a IA sugere cargos novos (substitui os anteriores) | 201 |
+
+`tipos`: `estagio`, `trainee`, `junior`. `modalidades`: `presencial`, `hibrido`, `remoto`. `areas` (até 10) e `stack` (até 15) são textos livres de até 40 caracteres; repetidos e vazios são ignorados.
+
+Onde as preferências entram:
+
+- **Análise (prompt v2):** a IA recebe as preferências e devolve `alertas_preferencias`, os pontos da vaga que vão contra elas (ex.: "Você prefere vagas remotas, e esta é presencial em Campinas."). A nota não muda: ela mede só o currículo contra a vaga. Mudar as preferências deixa a análise `desatualizada`.
+- **Carta (prompt carta-v2):** só as áreas e a stack de interesse entram, como motivação; o prompt proíbe tratá-las como experiência. Cidade, modalidade e "prefiro evitar" ficam fora da carta.
+- **Kanban:** cada vaga traz `fora_das_preferencias`, a lista do que nela contraria o tipo, a modalidade ou a cidade (ex.: `["Júnior", "Presencial", "Fora de São Paulo"]`). É uma busca por palavras no cargo, no local e na descrição (`vagas/compatibilidade.py`), sem IA: roda em todas as vagas, na hora e sem gastar cota. Só conta como conflito o que a vaga diz claramente; vaga que não informa continua aparecendo no filtro.
+- **Sugestões de busca:** cada cargo vem como `{cargo, area, nota, por_que, busca, palavras_chave[], links[]}`. `nota` é a aderência estimada do currículo às vagas típicas do cargo; `busca` é o texto para digitar nos sites. Os `links` (LinkedIn, Gupy e Indeed) são montados pelo backend a cada leitura (`vagas/busca.py`), com a cidade, a modalidade e o nível das preferências atuais, então mudar as preferências já muda os links, sem chamar a IA. O Encaixe só monta a URL: nada desses sites é lido pelo backend.
 
 ### Erros da IA
 
@@ -209,7 +229,9 @@ cd backend
 python manage.py test
 ```
 
-São 34 testes, todos com a IA simulada (mock), sem gastar a cota do Gemini: cadastro, login, logout e token (`contas/tests.py`); CRUD de vagas, status do kanban e acesso só às próprias vagas; currículo, análise e carta com cache e validação; e a tradução de cada falha do Gemini (429, 5xx, tempo esgotado, JSON inválido, sem chave) em `ErroIA` (`vagas/tests.py`).
+São 62 testes, todos com a IA simulada (mock), sem gastar a cota do Gemini: cadastro, login, logout e token (`contas/tests.py`); CRUD de vagas, status do kanban e acesso só às próprias vagas; currículo, análise e carta com cache e validação; e a tradução de cada falha do Gemini (429, 5xx, tempo esgotado, JSON inválido, sem chave) em `ErroIA` (`vagas/tests.py`). As preferências estão em `contas/tests_preferencias.py`. O filtro do kanban, os links de busca, o que vai em cada prompt, o cache da análise com preferências e as sugestões de busca estão em `vagas/tests_meio_termo.py`.
+
+Cuidado ao escrever testes: o `@patch` de uma classe não vale dentro do `setUp`. Se o `setUp` salva o currículo, simule a IA ali também; senão o teste chama o Gemini de verdade.
 
 ## Deploy (Render)
 
