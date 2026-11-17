@@ -56,14 +56,14 @@ Níveis do produto: **Núcleo** (análise vaga × currículo), **Meio-termo** (p
 - [X] Gerar links de busca prontos com essas palavras-chave (S)
 
 **Extra (só se sobrar tempo; é o primeiro item a cortar)**
-- [ ] Verificar cobertura para o Brasil e limites gratuitos de uma API pública de vagas (S)
-- [ ] Integrar a API e listar vagas reais (L)
-- [ ] IA: ranquear as vagas pela aderência ao perfil (M)
-- [ ] Botão "salvar no kanban" nas vagas listadas (S)
+- [X] Verificar cobertura para o Brasil e limites gratuitos de uma API pública de vagas (S)
+- [X] Integrar a API e listar vagas reais (L)
+- [X] IA: ranquear as vagas pela aderência ao perfil (M)
+- [X] Botão "salvar no kanban" nas vagas listadas (S)
 
 **Diferencial (A+)**
-- [ ] Montar um conjunto com cerca de 10 pares currículo × vaga (M)
-- [ ] Comparar duas versões do prompt nesse conjunto e registrar o resultado no README (M)
+- [X] Montar um conjunto com cerca de 10 pares currículo × vaga (M)
+- [ ] Comparar duas versões do prompt nesse conjunto e registrar o resultado no README (M): comando pronto, falta rodar com a chave do Gemini
 - [ ] Teste rápido com cerca de 5 usuários e registro do retorno no README (M)
 - [ ] Responder o questionário de equipe da Sprint 2 (XS)
 
@@ -86,6 +86,7 @@ backend/    Django REST Framework (projeto "encaixe")
   contas/   Perfil, Preferencias, cadastro, login e logout
   vagas/    Curriculo, Vaga, Analise, Carta, Sugestoes, o CRUD de vagas e a IA (ia.py)
             compatibilidade.py (filtro do kanban) e busca.py (links do LinkedIn, Gupy e Indeed)
+            vagas_reais.py (API do Adzuna) e management/commands/comparar_prompts.py
   build.sh  build do deploy no Render
 frontend/   React (Vite) + Tailwind
   src/api.js            axios já com o endereço do backend e o token
@@ -94,14 +95,14 @@ frontend/   React (Vite) + Tailwind
   src/auth/             login no React (useAuth, RotaProtegida)
   src/components/       Layout, formulário, cabeçalho, aviso de privacidade, carregamento da IA...
   src/pages/            uma tela por arquivo
-docs/       fluxo de telas
+docs/       fluxo de telas, avaliacao/ (pares currículo × vaga e resultado da comparação) e roteiro do teste com usuários
 ```
 
 ## Fluxo de telas
 
 ![Fluxo de telas do Encaixe](docs/fluxo-de-telas.png)
 
-Telas prontas: login, cadastro, currículo, preferências, minhas vagas (kanban com filtro por preferências), nova vaga, análise da vaga, carta de apresentação e sugestões de busca. Vagas para você é do extra da Sprint 2.
+Telas prontas: login, cadastro, currículo, preferências, minhas vagas (kanban com filtro por preferências), nova vaga, análise da vaga, carta de apresentação, sugestões de busca e vagas para você (vagas reais ranqueadas pela IA).
 
 ## Como rodar localmente
 
@@ -143,6 +144,7 @@ Os valores ficam em `backend/.env` (local) ou no painel do Render (deploy). O `.
 | `DATABASE_URL` | PostgreSQL do Render (vazio = SQLite local) |
 | `GEMINI_API_KEY` | chave da API do Gemini (Google AI Studio) |
 | `GEMINI_MODEL` | (opcional) modelo do Gemini; padrão `gemini-3.5-flash-lite` |
+| `ADZUNA_APP_ID` / `ADZUNA_APP_KEY` | (opcional) credenciais grátis da API de vagas do [Adzuna](https://developer.adzuna.com); sem elas, "Vagas para você" avisa que não está configurada |
 | `VITE_API_URL` | (frontend) endereço da API, terminando em `/api` |
 
 ## API
@@ -204,6 +206,25 @@ Onde as preferências entram:
 - **Kanban:** cada vaga traz `fora_das_preferencias`, a lista do que nela contraria o tipo, a modalidade ou a cidade (ex.: `["Júnior", "Presencial", "Fora de São Paulo"]`). É uma busca por palavras no cargo, no local e na descrição (`vagas/compatibilidade.py`), sem IA: roda em todas as vagas, na hora e sem gastar cota. Só conta como conflito o que a vaga diz claramente; vaga que não informa continua aparecendo no filtro.
 - **Sugestões de busca:** cada cargo vem como `{cargo, area, nota, por_que, busca, palavras_chave[], links[]}`. `nota` é a aderência estimada do currículo às vagas típicas do cargo; `busca` é o texto para digitar nos sites. Os `links` (LinkedIn, Gupy e Indeed) são montados pelo backend a cada leitura (`vagas/busca.py`), com a cidade, a modalidade e o nível das preferências atuais, então mudar as preferências já muda os links, sem chamar a IA. O Encaixe só monta a URL: nada desses sites é lido pelo backend.
 
+### Vagas para você (extra)
+
+| Método | Rota | O que faz | Resposta |
+| --- | --- | --- | --- |
+| GET | `/api/vagas-reais/?q=estágio dados` | busca vagas reais do Brasil no Adzuna e a IA ranqueia pelo currículo | 200 `{termo, cidade, vagas[], ranqueada, erro_ranking}` |
+
+Sem `q`, o termo é o `busca` da melhor sugestão de busca ou, sem sugestões, o tipo + a primeira área das preferências (ex.: "estágio Dados"); sem nenhum dos dois, 400. A cidade vem das preferências, com a mesma regra dos links de busca (quem só quer remoto não filtra cidade e a busca ganha "remoto").
+
+Cada vaga vem no formato do modelo `Vaga` (`titulo, empresa, local, descricao, link`), então o botão "Salvar no kanban" só manda esses campos para `POST /api/vagas/`. Também vêm `id` (do Adzuna), `criado_em`, `fora_das_preferencias` (o mesmo filtro do kanban), `salva_id` (id da vaga no kanban se o link já foi salvo, senão `null`) e `nota`/`motivo` do ranking.
+
+Ranking (prompt `ranking-v1`): uma chamada ao Gemini para a lista inteira, que devolve `{id, nota, motivo}` por vaga, validada pelo `ResultadoRankingSerializer`. Ids que a IA inventa são ignorados e vaga sem nota vai para o fim. Sem currículo, a lista volta sem notas. Se a IA falhar, a lista volta mesmo assim, com `ranqueada: false` e a mensagem em `erro_ranking`. Falha do Adzuna responde 502 `{detail, codigo}` (`sem_chave`, `limite`, `indisponivel`, `sem_conexao`), como os erros da IA.
+
+**Por que o Adzuna** (verificado em 17/11/2026 em developer.adzuna.com):
+
+- Cobre o Brasil: `api.adzuna.com/v1/api/jobs/br/search/1` (o site é o adzuna.com.br). Gupy, LinkedIn e Indeed não têm API pública de busca.
+- Grátis: a chave sai na hora, sem cartão. Os termos dizem que o plano grátis é "para avaliar a API" e que os limites aparecem no painel da conta (não há números públicos). Uso acadêmico e busca pessoal são permitidos; uso comercial exige contrato.
+- Limitações: a API devolve só um **trecho** da descrição, então a tela pede para abrir o anúncio e colar a descrição completa antes da análise. Cada vaga mostrada precisa do crédito "Adzuna" com link (está no rodapé da lista).
+- Cada busca gasta 1 chamada do Adzuna e 1 do Gemini (sem cache).
+
 ### Erros da IA
 
 Toda falha da IA responde 502 com `{detail, codigo}`. O `detail` já é a mensagem para mostrar ao usuário; o `codigo` diz o tipo:
@@ -222,6 +243,27 @@ No frontend, as chamadas à IA usam `{ timeout: TEMPO_IA }` (2 min) e as telas m
 
 O código da IA fica em `backend/vagas/ia.py` (chamada REST ao Gemini, prompts e schemas).
 
+## Avaliação dos prompts (diferencial)
+
+**Conjunto:** `docs/avaliacao/pares.json` tem 11 pares currículo × vaga fictícios (4 currículos: dados, administração, dev full-stack e design). Cada par tem uma `nota_referencia`, a nota que esperamos de um recrutador: casos de aderência alta, média e baixa, incluindo vagas de outra área e vagas que pedem experiência que o currículo não tem. **Revisem as notas de referência antes de rodar**: elas são o gabarito.
+
+**O que comparamos:** o prompt da análise em produção (`v2`) contra uma `v3` que dá uma escala explícita para a nota (separa requisitos obrigatórios de desejáveis, com faixas 85–100 / 65–84 / 40–64 / 0–39) e pede a evidência do currículo em cada requisito atendido. As duas ficam em `INSTRUCAO_NOTA` no `vagas/ia.py`.
+
+**Como rodar** (usa a chave de verdade: 11 pares × 2 versões × 2 rodadas = 44 chamadas, com 4 s de pausa entre elas):
+
+```bash
+cd backend
+python manage.py comparar_prompts            # opções: --rodadas 1, --pausa 6, --versoes v2 v3
+```
+
+O comando escreve `docs/avaliacao/resultado.md` com três métricas por versão: **erro médio** (distância da nota da IA até a referência), **faixa certa** (alta/média/baixa iguais às do frontend) e **variação entre rodadas** (a mesma entrada dá a mesma nota?).
+
+**Resultado:** _rodar o comando e colar aqui a tabela-resumo do `resultado.md`, com a decisão (manter a v2 ou trocar `VERSAO_PROMPT` para `"v3"`). O cache da análise não olha a versão do prompt: análises antigas continuam na v2 até o currículo, a vaga ou as preferências mudarem._
+
+## Teste com usuários (diferencial)
+
+Roteiro em `docs/teste-usuarios.md` (5 tarefas, cerca de 15 min por pessoa). Registrar aqui o retorno das ~5 pessoas: quem testou (curso/semestre), onde travou e o que mudamos por causa disso.
+
 ## Testes
 
 ```bash
@@ -229,7 +271,7 @@ cd backend
 python manage.py test
 ```
 
-São 62 testes, todos com a IA simulada (mock), sem gastar a cota do Gemini: cadastro, login, logout e token (`contas/tests.py`); CRUD de vagas, status do kanban e acesso só às próprias vagas; currículo, análise e carta com cache e validação; e a tradução de cada falha do Gemini (429, 5xx, tempo esgotado, JSON inválido, sem chave) em `ErroIA` (`vagas/tests.py`). As preferências estão em `contas/tests_preferencias.py`. O filtro do kanban, os links de busca, o que vai em cada prompt, o cache da análise com preferências e as sugestões de busca estão em `vagas/tests_meio_termo.py`.
+São 75 testes, todos com a IA simulada (mock), sem gastar a cota do Gemini: cadastro, login, logout e token (`contas/tests.py`); CRUD de vagas, status do kanban e acesso só às próprias vagas; currículo, análise e carta com cache e validação; e a tradução de cada falha do Gemini (429, 5xx, tempo esgotado, JSON inválido, sem chave) em `ErroIA` (`vagas/tests.py`). As preferências estão em `contas/tests_preferencias.py`. O filtro do kanban, os links de busca, o que vai em cada prompt, o cache da análise com preferências e as sugestões de busca estão em `vagas/tests_meio_termo.py`. As vagas reais (Adzuna simulado), o ranking, o "salvar no kanban" e o comando `comparar_prompts` estão em `vagas/tests_extra.py`.
 
 Cuidado ao escrever testes: o `@patch` de uma classe não vale dentro do `setUp`. Se o `setUp` salva o currículo, simule a IA ali também; senão o teste chama o Gemini de verdade.
 
@@ -242,7 +284,7 @@ Feito em 17/11/2026: backend (Web Service), frontend (Static Site) e PostgreSQL 
    - Root Directory: `backend` · Runtime: Python
    - Build Command: `bash build.sh` (instala, roda o `collectstatic` e o `migrate`)
    - Start Command: `gunicorn encaixe.wsgi:application --timeout 120` (o padrão de 30 s do gunicorn é menor que o tempo de uma chamada ao Gemini)
-   - Variáveis: `PYTHON_VERSION=3.12.8`, `SECRET_KEY` (texto aleatório novo), `DEBUG=False`, `DATABASE_URL`, `GEMINI_API_KEY` e `CORS_ALLOWED_ORIGINS` (endereço do frontend, passo 3). O domínio `.onrender.com` do serviço entra no `ALLOWED_HOSTS` sozinho (o Render informa em `RENDER_EXTERNAL_HOSTNAME`).
+   - Variáveis: `PYTHON_VERSION=3.12.8`, `SECRET_KEY` (texto aleatório novo), `DEBUG=False`, `DATABASE_URL`, `GEMINI_API_KEY`, `ADZUNA_APP_ID` e `ADZUNA_APP_KEY` (para "Vagas para você") e `CORS_ALLOWED_ORIGINS` (endereço do frontend, passo 3). O domínio `.onrender.com` do serviço entra no `ALLOWED_HOSTS` sozinho (o Render informa em `RENDER_EXTERNAL_HOSTNAME`).
 3. **Frontend**: crie um *Static Site* ligado ao mesmo repositório.
    - Root Directory: `frontend` · Build Command: `npm ci && npm run build` · Publish Directory: `dist`
    - Variável: `VITE_API_URL=https://<backend>.onrender.com/api`
