@@ -4,6 +4,7 @@ import {
   Lightbulb,
   PenLine,
   RefreshCw,
+  SlidersHorizontal,
   Sparkles,
   TriangleAlert,
 } from "lucide-react";
@@ -177,7 +178,7 @@ export default function AnaliseVaga() {
               <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                 <span className="flex items-center gap-2">
                   <TriangleAlert className="size-4 shrink-0" aria-hidden="true" />
-                  Seu currículo ou a vaga mudou depois desta análise.
+                  Seu currículo, suas preferências ou a vaga mudaram depois desta análise.
                 </span>
                 <Botao variante="secundario" onClick={analisar} className="py-1.5">
                   <RefreshCw className="size-4" aria-hidden="true" />
@@ -225,6 +226,8 @@ function ResultadoAnalise({ analise, vaga }) {
             </div>
           </div>
         </div>
+
+        <AlertasPreferencias itens={resultado.alertas_preferencias} />
 
         <div className="grid gap-6 sm:grid-cols-2">
           <ListaResultado
@@ -277,6 +280,32 @@ function ResultadoAnalise({ analise, vaga }) {
           {analise.versao_prompt}.
         </p>
       </aside>
+    </div>
+  );
+}
+
+/** O que na vaga vai contra as preferências (só nas análises feitas com o prompt v2). */
+function AlertasPreferencias({ itens }) {
+  if (!itens?.length) return null;
+  return (
+    <div className="rounded-xl border border-rose-200 bg-rose-50 p-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="flex items-center gap-2 font-semibold text-rose-900">
+          <SlidersHorizontal className="size-4 text-rose-600" aria-hidden="true" />
+          Pontos contra as suas preferências
+        </h2>
+        <Link to="/preferencias" className="text-xs font-medium text-rose-700 hover:underline">
+          Editar preferências
+        </Link>
+      </div>
+      <ul className="mt-3 space-y-2">
+        {itens.map((item, indice) => (
+          <li key={indice} className="flex gap-2.5 text-sm leading-relaxed text-rose-900">
+            <span className="mt-2 size-1.5 shrink-0 rounded-full bg-rose-500" aria-hidden="true" />
+            {item}
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

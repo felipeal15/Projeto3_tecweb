@@ -1,11 +1,31 @@
-import { BriefcaseBusiness, Ellipsis, MoveRight, Plus, Trash2 } from "lucide-react";
+import { BriefcaseBusiness, CircleCheck, Ellipsis, Funnel, MoveRight, Plus, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import api, { lerErros } from "../api";
 import Cabecalho from "../components/Cabecalho";
-import { AvisoErro, LinkBotao } from "../components/Formulario";
+import { AvisoErro, Botao, LinkBotao } from "../components/Formulario";
 import { SeloNota } from "../components/Selos";
+import { chipsDoFiltro, temFiltro } from "../preferencias";
 import { NOTA_ALTA, STATUS, tempoRelativo } from "../vagas";
+
+// O filtro por preferências fica lembrado neste navegador.
+const CHAVE_FILTRO = "encaixe:filtrar-preferencias";
+
+function lerFiltroSalvo() {
+  try {
+    return localStorage.getItem(CHAVE_FILTRO) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function salvarFiltro(ativo) {
+  try {
+    localStorage.setItem(CHAVE_FILTRO, ativo ? "1" : "0");
+  } catch {
+    // Sem localStorage (aba anônima bloqueada): o filtro só não fica lembrado.
+  }
+}
 
 // Kanban: GET /api/vagas/ lista; PATCH /api/vagas/<id>/ com { status } muda de coluna.
 // Dá para mover arrastando o card ou pelo menu "⋯" do card (que funciona no celular e no teclado).
@@ -15,13 +35,25 @@ export default function MinhasVagas() {
   const [erroAcao, setErroAcao] = useState("");
   const [arrastando, setArrastando] = useState(null); // id da vaga sendo arrastada
   const [colunaAlvo, setColunaAlvo] = useState(null);
+  // Filtro por preferências: o backend manda em cada vaga o que ela tem fora das preferências.
+  const [preferencias, setPreferencias] = useState(null);
+  const [filtrando, setFiltrando] = useState(lerFiltroSalvo);
 
   const buscar = useCallback(() => {
     api
       .get("/vagas/")
       .then(({ data }) => setVagas(data))
       .catch((erro) => setErroCarregar(lerErros(erro).geral));
+    api
+      .get("/preferencias/")
+      .then(({ data }) => setPreferencias(data))
+      .catch(() => setPreferencias(null)); // sem preferências, o quadro funciona sem filtro
   }, []);
+
+  function alternarFiltro(ativo) {
+    setFiltrando(ativo);
+    salvarFiltro(ativo);
+  }
 
   useEffect(() => {
     buscar();
@@ -80,14 +112,68 @@ export default function MinhasVagas() {
     ? `${vagas.length} ${vagas.length === 1 ? "vaga salva" : "vagas salvas"} · ${altas} com alta aderência`
     : "Carregando suas vagas...";
 
+  const podeFiltrar = temFiltro(preferencias);
+  const filtroAtivo = filtrando && podeFiltrar;
+  const visiveis =
+    vagas && filtroAtivo ? vagas.filter((v) => !v.fora_das_preferencias?.length) : vagas;
+  const escondidas = vagas ? vagas.length - visiveis.length : 0;
+
   return (
     <section>
       <Cabecalho titulo="Minhas vagas" subtitulo={subtitulo}>
+        {preferencias &&
+          (podeFiltrar ? (
+            <Botao
+              variante="secundario"
+              aria-pressed={filtroAtivo}
+              onClick={() => alternarFiltro(!filtroAtivo)}
+            >
+              <Funnel className="size-4" aria-hidden="true" />
+              Filtrar por preferências
+              {filtroAtivo && <span className="size-1.5 rounded-full bg-blue-600" aria-hidden="true" />}
+            </Botao>
+          ) : (
+            <LinkBotao
+              para="/preferencias"
+              variante="secundario"
+              title="Defina tipo de vaga, modalidade ou cidade para filtrar o quadro"
+            >
+              <Funnel className="size-4" aria-hidden="true" />
+              Filtrar por preferências
+            </LinkBotao>
+          ))}
         <LinkBotao para="/nova-vaga">
           <Plus className="size-4" aria-hidden="true" />
           Nova vaga
         </LinkBotao>
       </Cabecalho>
+
+      {filtroAtivo && (
+        <div className="-mt-2 mb-4 flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-slate-600">Filtros:</span>
+          {chipsDoFiltro(preferencias).map((chip) => (
+            <span
+              key={chip}
+              className="inline-flex items-center gap-1.5 rounded-full border border-blue-600 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700"
+            >
+              <CircleCheck className="size-3.5" aria-hidden="true" />
+              {chip}
+            </span>
+          ))}
+          <button
+            type="button"
+            onClick={() => alternarFiltro(false)}
+            className="cursor-pointer font-medium text-blue-600 hover:underline"
+          >
+            Limpar
+          </button>
+          <span className="text-xs text-slate-500" role="status">
+            {escondidas > 0
+              ? `· ${escondidas} ${escondidas === 1 ? "vaga escondida" : "vagas escondidas"} por não combinar`
+              : "· todas as vagas combinam"}
+          </span>
+        </div>
+      )}
 
       {erroAcao && (
         <div className="mb-4">
@@ -109,7 +195,7 @@ export default function MinhasVagas() {
                 <Coluna
                   key={status.valor}
                   status={status}
-                  vagas={vagas.filter((v) => v.status === status.valor)}
+                  vagas={visiveis.filter((v) => v.status === status.valor)}
                   destacada={colunaAlvo === status.valor}
                   arrastando={arrastando}
                   aoEntrar={() => setColunaAlvo(status.valor)}

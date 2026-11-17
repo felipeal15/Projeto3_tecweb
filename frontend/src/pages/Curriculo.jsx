@@ -111,10 +111,10 @@ function ResumoCurriculo({ dados }) {
       <Etiquetas titulo="Idiomas" itens={dados.idiomas} />
 
       <Link
-        to="/nova-vaga"
+        to="/preferencias"
         className="mt-6 inline-block text-sm font-medium text-blue-600 hover:underline"
       >
-        Próximo passo: analisar uma vaga →
+        Próximo passo: suas preferências →
       </Link>
     </div>
   );

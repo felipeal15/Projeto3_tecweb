@@ -1,21 +1,31 @@
-import { BriefcaseBusiness, FileText, LogOut, Plus } from "lucide-react";
+import {
+  BriefcaseBusiness,
+  Compass,
+  FileText,
+  LogOut,
+  Plus,
+  SlidersHorizontal,
+} from "lucide-react";
 import { NavLink, Outlet } from "react-router-dom";
 import { useAuth } from "../auth/useAuth";
 import Logo from "./Logo";
 
-// Menu lateral. Telas novas (Sugestões de busca, Vagas para você, Preferências)
-// entram aqui quando forem criadas, junto com a rota no App.jsx.
+// Menu lateral. Telas novas (ex.: Vagas para você) entram aqui, junto com a rota no App.jsx.
 const secoes = [
   {
     titulo: "Vagas",
     itens: [
       { para: "/vagas", rotulo: "Minhas vagas", Icone: BriefcaseBusiness },
       { para: "/nova-vaga", rotulo: "Nova vaga", Icone: Plus },
+      { para: "/sugestoes", rotulo: "Sugestões de busca", Icone: Compass },
     ],
   },
   {
     titulo: "Perfil",
-    itens: [{ para: "/curriculo", rotulo: "Currículo", Icone: FileText }],
+    itens: [
+      { para: "/curriculo", rotulo: "Currículo", Icone: FileText },
+      { para: "/preferencias", rotulo: "Preferências", Icone: SlidersHorizontal },
+    ],
   },
 ];
 

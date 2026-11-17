@@ -8,6 +8,8 @@ import Curriculo from "./pages/Curriculo";
 import Login from "./pages/Login";
 import MinhasVagas from "./pages/MinhasVagas";
 import NovaVaga from "./pages/NovaVaga";
+import Preferencias from "./pages/Preferencias";
+import SugestoesBusca from "./pages/SugestoesBusca";
 
 export default function App() {
   return (
@@ -23,6 +25,8 @@ export default function App() {
           <Route path="/vagas/:id/carta" element={<CartaApresentacao />} />
           <Route path="/nova-vaga" element={<NovaVaga />} />
           <Route path="/curriculo" element={<Curriculo />} />
+          <Route path="/preferencias" element={<Preferencias />} />
+          <Route path="/sugestoes" element={<SugestoesBusca />} />
         </Route>
       </Route>
 

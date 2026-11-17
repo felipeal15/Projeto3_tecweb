@@ -6,32 +6,8 @@ import AvisoPrivacidade from "../components/AvisoPrivacidade";
 import { AvisoErro, BotaoPrimario, CampoTexto } from "../components/Formulario";
 import Logo from "../components/Logo";
 import PainelMarca from "../components/PainelMarca";
+import PassosOnboarding from "../components/PassosOnboarding";
 import TelaCarregando from "../components/TelaCarregando";
-
-const passos = ["Conta", "Currículo", "Preferências"];
-
-function PassosCadastro() {
-  return (
-    <ol className="flex flex-wrap items-center gap-2 text-xs" aria-label="Etapas do cadastro">
-      {passos.map((passo, indice) => {
-        const atual = indice === 0;
-        return (
-          <li key={passo} className="flex items-center gap-2" aria-current={atual ? "step" : undefined}>
-            {indice > 0 && <span className="h-px w-4 bg-slate-300" aria-hidden="true" />}
-            <span
-              className={`grid size-5 place-items-center rounded-full border text-[11px] font-semibold ${
-                atual ? "border-blue-600 text-blue-600" : "border-slate-300 text-slate-400"
-              }`}
-            >
-              {indice + 1}
-            </span>
-            <span className={atual ? "font-medium text-slate-900" : "text-slate-400"}>{passo}</span>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
 
 export default function Cadastro() {
   const { usuario, carregando, cadastrar } = useAuth();
@@ -71,7 +47,7 @@ export default function Cadastro() {
           </div>
 
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-            <PassosCadastro />
+            <PassosOnboarding atual={0} />
             <h2 className="mt-5 text-xl font-semibold text-slate-900">Criar conta</h2>
             <p className="mt-1 text-sm text-slate-500">Leva menos de 1 minuto.</p>
 
