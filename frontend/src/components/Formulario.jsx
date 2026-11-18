@@ -112,6 +112,55 @@ export function BotaoPrimario(props) {
   return <Botao variante="azul" {...props} />;
 }
 
+/**
+ * Botão que abre o seletor de arquivos: um <label> com o <input type="file"> escondido.
+ * `aoEscolher` recebe o File. Ex.: <CampoArquivo id="pdf" accept="application/pdf" aoEscolher={lerPdf}>Escolher PDF</CampoArquivo>
+ */
+export function CampoArquivo({
+  id,
+  variante = "secundario",
+  carregando = false,
+  textoCarregando,
+  disabled = false,
+  aoEscolher,
+  className = "",
+  children,
+  ...props
+}) {
+  const bloqueado = carregando || disabled;
+  return (
+    <label
+      htmlFor={id}
+      className={`${BASE_BOTAO} ${VARIANTES[variante]} focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-blue-600 ${
+        bloqueado ? "pointer-events-none opacity-60" : ""
+      } ${className}`}
+    >
+      <input
+        id={id}
+        name={id}
+        type="file"
+        className="sr-only"
+        disabled={bloqueado}
+        onChange={(evento) => {
+          const arquivo = evento.target.files?.[0];
+          // Zera o campo: assim escolher o mesmo arquivo de novo dispara outro onChange.
+          evento.target.value = "";
+          if (arquivo) aoEscolher(arquivo);
+        }}
+        {...props}
+      />
+      {carregando ? (
+        <>
+          <LoaderCircle className="size-4 animate-spin" aria-hidden="true" />
+          {textoCarregando ?? children}
+        </>
+      ) : (
+        children
+      )}
+    </label>
+  );
+}
+
 /** Link com cara de botão. Ex.: <LinkBotao para="/nova-vaga">Nova vaga</LinkBotao> */
 export function LinkBotao({ para, variante = "azul", className = "", children, ...props }) {
   return (

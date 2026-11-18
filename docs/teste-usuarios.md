@@ -6,7 +6,7 @@ Cerca de 15 minutos por pessoa, com ~5 estudantes que estão procurando estágio
 
 ## Tarefas
 
-1. Crie uma conta e cadastre seu currículo.
+1. Crie uma conta e cadastre seu currículo (enviando o PDF ou colando o texto). Pergunta para quem enviou o PDF: *o texto saiu certo?*
 2. Defina suas preferências (tipo de vaga, modalidade, cidade).
 3. Cole uma vaga que te interessa e veja a análise. Pergunta: *a nota e as lacunas fazem sentido para você?*
 4. Gere a carta de apresentação dessa vaga. Pergunta: *tem algo inventado ou que você não diria?*

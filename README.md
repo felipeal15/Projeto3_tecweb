@@ -44,6 +44,7 @@ Níveis do produto: **Núcleo** (análise vaga × currículo), **Meio-termo** (p
 - [X] IA: gerar carta de apresentação usando só fatos do currículo, com edição pelo usuário (M)
 - [X] Tratar erros da IA (limite de requisições, JSON inválido, tempo esgotado) e estados de carregamento (M)
 - [X] Aviso de privacidade sobre o envio do currículo à API de IA (XS)
+- [X] Envio do currículo em PDF: o backend extrai o texto e o usuário confere antes de salvar (S)
 - [X] Aplicar o framework CSS em todas as telas (L)
 - [X] Testes do backend: autenticação, vagas e análise com a IA simulada (mock) (M)
 
@@ -86,7 +87,8 @@ backend/    Django REST Framework (projeto "encaixe")
   contas/   Perfil, Preferencias, cadastro, login e logout
   vagas/    Curriculo, Vaga, Analise, Carta, Sugestoes, o CRUD de vagas e a IA (ia.py)
             compatibilidade.py (filtro do kanban) e busca.py (links do LinkedIn, Gupy e Indeed)
-            vagas_reais.py (API do Adzuna) e management/commands/comparar_prompts.py
+            pdf.py (texto do currículo em PDF), vagas_reais.py (API do Adzuna)
+            e management/commands/comparar_prompts.py
   build.sh  build do deploy no Render
 frontend/   React (Vite) + Tailwind
   src/api.js            axios já com o endereço do backend e o token
@@ -102,7 +104,7 @@ docs/       fluxo de telas, avaliacao/ (pares currículo × vaga e resultado da 
 
 ![Fluxo de telas do Encaixe](docs/fluxo-de-telas.png)
 
-Telas prontas: login, cadastro, currículo, preferências, minhas vagas (kanban com filtro por preferências), nova vaga, análise da vaga, carta de apresentação, sugestões de busca e vagas para você (vagas reais ranqueadas pela IA).
+Telas prontas: login, cadastro, currículo (envio do PDF ou texto colado), preferências, minhas vagas (kanban com filtro por preferências), nova vaga, análise da vaga, carta de apresentação, sugestões de busca e vagas para você (vagas reais ranqueadas pela IA).
 
 ## Como rodar localmente
 
@@ -171,8 +173,11 @@ Status da vaga: `interessado`, `candidatado`, `entrevista`, `oferta`, `encerrada
 | --- | --- | --- | --- |
 | GET | `/api/curriculo/` | currículo do usuário | 200 `{texto, dados, desatualizado, atualizado_em}` ou 404 |
 | PUT | `/api/curriculo/` | salva `{texto}` (mín. 50 caracteres) e a IA estrutura em `dados` | 200 |
+| POST | `/api/curriculo/pdf/` | lê o texto de um PDF enviado (multipart `arquivo`), sem salvar | 200 `{texto, paginas, cortado}` ou 400 `{detail, codigo}` |
 | POST | `/api/vagas/<id>/analise/` | analisa a vaga com a IA | 201 (nova) ou 200 (do cache) |
 | GET | `/api/vagas/<id>/analise/` | última análise da vaga | 200 ou 404 |
+
+**Currículo em PDF:** a tela do currículo aceita o arquivo (botão ou arrastar e soltar) e chama `POST /api/curriculo/pdf/`. O `vagas/pdf.py` lê o texto com o [pypdf](https://pypdf.readthedocs.io) e devolve para a tela: nada é salvo até o usuário conferir o texto e clicar em Salvar currículo (o PUT normal). Limites: 5 MB, 10 páginas e 20 mil caracteres (`cortado: true` avisa que o resto ficou de fora). Não tem OCR, então PDF escaneado (só imagem) responde 400 com `codigo: sem_texto` e a tela pede para colar o texto. Os outros códigos são `tipo` (não é .pdf), `grande`, `protegido` (PDF com senha), `invalido` (arquivo corrompido) e `sem_arquivo`.
 
 A análise volta como `{id, vaga, nota, resultado, desatualizada, modelo_ia, versao_prompt, criado_em}`, com `resultado = {nota, resumo, requisitos_atendidos[], lacunas[], sugestoes[], alertas_preferencias[]}`. O JSON da IA é validado pelo `ResultadoAnaliseSerializer` antes de ser salvo.
 
@@ -271,7 +276,7 @@ cd backend
 python manage.py test
 ```
 
-São 75 testes, todos com a IA simulada (mock), sem gastar a cota do Gemini: cadastro, login, logout e token (`contas/tests.py`); CRUD de vagas, status do kanban e acesso só às próprias vagas; currículo, análise e carta com cache e validação; e a tradução de cada falha do Gemini (429, 5xx, tempo esgotado, JSON inválido, sem chave) em `ErroIA` (`vagas/tests.py`). As preferências estão em `contas/tests_preferencias.py`. O filtro do kanban, os links de busca, o que vai em cada prompt, o cache da análise com preferências e as sugestões de busca estão em `vagas/tests_meio_termo.py`. As vagas reais (Adzuna simulado), o ranking, o "salvar no kanban" e o comando `comparar_prompts` estão em `vagas/tests_extra.py`.
+São 87 testes, todos com a IA simulada (mock), sem gastar a cota do Gemini: cadastro, login, logout e token (`contas/tests.py`); CRUD de vagas, status do kanban e acesso só às próprias vagas; currículo, análise e carta com cache e validação; e a tradução de cada falha do Gemini (429, 5xx, tempo esgotado, JSON inválido, sem chave) em `ErroIA` (`vagas/tests.py`). As preferências estão em `contas/tests_preferencias.py`. O filtro do kanban, os links de busca, o que vai em cada prompt, o cache da análise com preferências e as sugestões de busca estão em `vagas/tests_meio_termo.py`. As vagas reais (Adzuna simulado), o ranking, o "salvar no kanban" e o comando `comparar_prompts` estão em `vagas/tests_extra.py`. O envio do currículo em PDF está em `vagas/tests_pdf.py`, com PDFs montados byte a byte pelo próprio teste (nenhum arquivo de exemplo no repositório).
 
 Cuidado ao escrever testes: o `@patch` de uma classe não vale dentro do `setUp`. Se o `setUp` salva o currículo, simule a IA ali também; senão o teste chama o Gemini de verdade.
 

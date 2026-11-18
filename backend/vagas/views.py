@@ -2,13 +2,14 @@ from django.conf import settings
 from django.db.models import OuterRef, Subquery
 from django.http import Http404
 from rest_framework import status
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, parser_classes
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
 from contas.models import Preferencias
 from contas.serializers import UsuarioSerializer
 
-from . import ia, vagas_reais
+from . import ia, pdf, vagas_reais
 from .compatibilidade import fora_das_preferencias, nome_da_cidade
 from .models import Analise, Carta, Curriculo, Sugestoes, Vaga
 from .serializers import (
@@ -126,6 +127,30 @@ def api_curriculo(request):
             f"Currículo salvo, mas a IA não conseguiu organizá-lo. {erro}", erro.codigo
         )
     return Response(CurriculoSerializer(curriculo).data)
+
+
+@api_view(["POST"])
+@parser_classes([MultiPartParser, FormParser])
+def api_curriculo_pdf(request):
+    """POST multipart {arquivo}: devolve o texto lido do PDF, sem salvar nada.
+
+    Quem salva é o PUT /api/curriculo/, depois que o usuário confere o texto na tela.
+    """
+    arquivo = request.FILES.get("arquivo")
+    if arquivo is None:
+        # Mesmo formato {detail, codigo} dos erros do pdf.py, que a tela já sabe mostrar.
+        return Response(
+            {"detail": "Escolha o PDF do seu currículo.", "codigo": "sem_arquivo"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    try:
+        lido = pdf.extrair_texto(arquivo)
+    except pdf.ErroPdf as erro:
+        return Response(
+            {"detail": str(erro), "codigo": erro.codigo}, status=status.HTTP_400_BAD_REQUEST
+        )
+    return Response(lido)
 
 
 @api_view(["GET", "POST"])

@@ -8,6 +8,7 @@ urlpatterns = [
     path("vagas/<int:vaga_id>/analise/", views.api_analise),
     path("vagas/<int:vaga_id>/carta/", views.api_carta),
     path("curriculo/", views.api_curriculo),
+    path("curriculo/pdf/", views.api_curriculo_pdf),
     path("sugestoes/", views.api_sugestoes),
     path("vagas-reais/", views.api_vagas_reais),
 ]
