@@ -5,6 +5,48 @@
 
 > Backend no plano gratuito do Render: depois de 15 min sem uso ele "dorme", e o primeiro acesso pode levar até 1 minuto.
 
+## Descrição e proposta de valor
+
+O Encaixe é um assistente de candidatura para quem procura estágio, trainee ou primeira vaga júnior. O usuário cadastra o currículo uma vez (em PDF ou colando o texto) e, para cada vaga que encontra, cola a descrição e recebe:
+
+1. uma nota de aderência (0 a 100) do currículo à vaga, com os requisitos que ele atende, as lacunas, sugestões do que fazer e alertas quando a vaga vai contra as preferências dele (modalidade, cidade, tipo de vaga);
+
+2. uma carta de apresentação escrita só com fatos do currículo, listando os fatos usados para ele conferir;
+
+3. um quadro de candidaturas para acompanhar cada vaga (interessado → candidatado → entrevista → oferta → encerrada).
+
+Além disso, o Encaixe sugere cargos e palavras-chave de busca a partir do currículo, monta links prontos para LinkedIn, Indeed e Gupy, e lista vagas reais (API do Adzuna) ranqueadas pela IA.
+
+A proposta de valor: trocar o "mandar currículo para tudo" por candidaturas escolhidas. Em poucos segundos o usuário sabe se vale a pena se candidatar, o que falta no currículo para aquela vaga e sai com uma carta honesta pronta para editar, tudo organizado num só lugar.
+
+## Público-alvo
+
+Estudantes universitários e recém-formados procurando o primeiro estágio, trainee ou vaga júnior, principalmente quem se candidata a muitas vagas ao mesmo tempo e ainda não tem experiência para avaliar sozinho se o próprio perfil "encaixa" no que a vaga pede.
+
+## Contribuição de cada integrante
+
+Integrante:	Rodrigo Buniac	
+Principais contribuições: Deploy no Render (backend, frontend e PostgreSQL); seções de descrição, público-alvo e problema deste README;
+
+Integrante: Felipe Menusier
+Principais contribuições:
+
+Integrante: Felipe Aldrighi
+Principais contribuições:
+
+Integrante: Theo Casagrande
+Principais contribuições:
+
+
+## Uso de IA no desenvolvimento
+
+
+## Problema que o projeto resolve
+
+Quem procura a primeira vaga costuma não saber se vale a pena se candidatar, gasta tempo demais escrevendo cartas para cada vaga, perde o controle de onde já se candidatou e não sabe quais cargos e palavras-chave buscar.
+
+O Encaixe resolve isso com a análise vaga × currículo, a carta baseada só em fatos, o quadro de candidaturas e as sugestões de busca.
+
 ## Cronograma
 
 Legenda de tamanho: XS, S, M, L, XL (os mesmos usados no quadro do GitHub Projects).
@@ -70,9 +112,9 @@ Níveis do produto: **Núcleo** (análise vaga × currículo), **Meio-termo** (p
 
 ### Fechamento (20/11 a 23/11)
 - [ ] Congelar funcionalidades em 20/11 (XS)
-- [ ] README completo: proposta, público-alvo, como rodar backend e frontend, variáveis de ambiente, link do deploy, fluxo de telas e uso de IA (M)
-- [ ] Revisar o quadro: todas as tarefas com responsável, tamanho, datas e passagem por To Do, Doing e Done (S)
-- [ ] Conferir que todos os integrantes têm commits significativos (XS)
+- [X] README completo: proposta, público-alvo, como rodar backend e frontend, variáveis de ambiente, link do deploy, fluxo de telas e uso de IA (M)
+- [] Revisar o quadro: todas as tarefas com responsável, tamanho, datas e passagem por To Do, Doing e Done (S)
+- [X] Conferir que todos os integrantes têm commits significativos (XS)
 - [ ] Testar o deploy do zero com uma conta nova (S)
 - [ ] Preparar a apresentação, incluindo o exemplo concreto de uso de IA no desenvolvimento: o que queríamos, como usamos a IA, o que corrigimos e como verificamos (M)
 - [ ] Ensaiar a apresentação (S)
