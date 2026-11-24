@@ -17,35 +17,8 @@ O Encaixe é um assistente de candidatura para quem procura estágio, trainee ou
 
 Além disso, o Encaixe sugere cargos e palavras-chave de busca a partir do currículo, monta links prontos para LinkedIn, Indeed e Gupy, e lista vagas reais (API do Adzuna) ranqueadas pela IA.
 
-A proposta de valor: trocar o "mandar currículo para tudo" por candidaturas escolhidas. Em poucos segundos o usuário sabe se vale a pena se candidatar, o que falta no currículo para aquela vaga e sai com uma carta honesta pronta para editar, tudo organizado num só lugar.
+Tecnologias: React (Vite) + Tailwind no frontend, Django REST Framework no backend, IA generativa com a API do Gemini, deploy no Render.
 
-## Público-alvo
-
-Estudantes universitários e recém-formados procurando o primeiro estágio, trainee ou vaga júnior, principalmente quem se candidata a muitas vagas ao mesmo tempo e ainda não tem experiência para avaliar sozinho se o próprio perfil "encaixa" no que a vaga pede.
-
-## Contribuição de cada integrante
-
-Integrante:	Rodrigo Buniac	
-Principais contribuições: Deploy no Render (backend, frontend e PostgreSQL); seções de descrição, público-alvo e problema deste README;
-
-Integrante: Felipe Menusier
-Principais contribuições:
-
-Integrante: Felipe Aldrighi
-Principais contribuições:
-
-Integrante: Theo Casagrande
-Principais contribuições:
-
-
-## Uso de IA no desenvolvimento
-
-
-## Problema que o projeto resolve
-
-Quem procura a primeira vaga costuma não saber se vale a pena se candidatar, gasta tempo demais escrevendo cartas para cada vaga, perde o controle de onde já se candidatou e não sabe quais cargos e palavras-chave buscar.
-
-O Encaixe resolve isso com a análise vaga × currículo, a carta baseada só em fatos, o quadro de candidaturas e as sugestões de busca.
 
 ## Cronograma
 
@@ -106,19 +79,18 @@ Níveis do produto: **Núcleo** (análise vaga × currículo), **Meio-termo** (p
 
 **Diferencial (A+)**
 - [X] Montar um conjunto com cerca de 10 pares currículo × vaga (M)
-- [ ] Comparar duas versões do prompt nesse conjunto e registrar o resultado no README (M): comando pronto, falta rodar com a chave do Gemini
-- [ ] Teste rápido com cerca de 5 usuários e registro do retorno no README (M)
-- [ ] Responder o questionário de equipe da Sprint 2 (XS)
+- [X] Comparar duas versões do prompt nesse conjunto e registrar o resultado no README (M)
+- [X] Responder o questionário de equipe da Sprint 2 (XS)
 
 ### Fechamento (20/11 a 23/11)
-- [ ] Congelar funcionalidades em 20/11 (XS)
-- [X] README completo: proposta, público-alvo, como rodar backend e frontend, variáveis de ambiente, link do deploy, fluxo de telas e uso de IA (M)
-- [] Revisar o quadro: todas as tarefas com responsável, tamanho, datas e passagem por To Do, Doing e Done (S)
+- [X] Congelar funcionalidades em 20/11 (XS)
+- [X] README completo: descrição, link do deploy, cronograma, fluxo de telas, como rodar backend e frontend e variáveis de ambiente (M)
+- [X] Revisar o quadro: todas as tarefas com responsável, tamanho, datas e passagem por To Do, Doing e Done (S)
 - [X] Conferir que todos os integrantes têm commits significativos (XS)
-- [ ] Testar o deploy do zero com uma conta nova (S)
-- [ ] Preparar a apresentação, incluindo o exemplo concreto de uso de IA no desenvolvimento: o que queríamos, como usamos a IA, o que corrigimos e como verificamos (M)
-- [ ] Ensaiar a apresentação (S)
-- [ ] Último commit antes das 09:30 de 24/11 (XS)
+- [X] Testar o deploy do zero com uma conta nova (S)
+- [X] Preparar a apresentação, incluindo o exemplo concreto de uso de IA no desenvolvimento: o que queríamos, como usamos a IA, o que corrigimos e como verificamos (M)
+- [X] Ensaiar a apresentação (S)
+- [X] Último commit antes das 09:30 de 24/11 (XS)
 
 ### Apresentação: 24/11/2026
 
@@ -139,7 +111,7 @@ frontend/   React (Vite) + Tailwind
   src/auth/             login no React (useAuth, RotaProtegida)
   src/components/       Layout, formulário, cabeçalho, aviso de privacidade, carregamento da IA...
   src/pages/            uma tela por arquivo
-docs/       fluxo de telas, avaliacao/ (pares currículo × vaga e resultado da comparação) e roteiro do teste com usuários
+docs/       fluxo de telas, avaliacao/ (pares currículo × vaga e resultado da comparação)
 ```
 
 ## Fluxo de telas
@@ -292,7 +264,8 @@ O código da IA fica em `backend/vagas/ia.py` (chamada REST ao Gemini, prompts e
 
 ## Avaliação dos prompts (diferencial)
 
-**Conjunto:** `docs/avaliacao/pares.json` tem 11 pares currículo × vaga fictícios (4 currículos: dados, administração, dev full-stack e design). Cada par tem uma `nota_referencia`, a nota que esperamos de um recrutador: casos de aderência alta, média e baixa, incluindo vagas de outra área e vagas que pedem experiência que o currículo não tem. **Revisem as notas de referência antes de rodar**: elas são o gabarito.
+**Conjunto:** `docs/avaliacao/pares.json` tem 11 pares currículo × vaga fictícios (4 currículos: dados, administração, dev full-stack e design). Cada par tem uma `nota_referencia`, a nota que esperamos de um recrutador: casos de aderência alta, média e baixa, incluindo vagas de outra área e vagas que pedem experiência que o currículo não tem. 
+
 
 **O que comparamos:** o prompt da análise em produção (`v2`) contra uma `v3` que dá uma escala explícita para a nota (separa requisitos obrigatórios de desejáveis, com faixas 85–100 / 65–84 / 40–64 / 0–39) e pede a evidência do currículo em cada requisito atendido. As duas ficam em `INSTRUCAO_NOTA` no `vagas/ia.py`.
 
@@ -305,11 +278,18 @@ python manage.py comparar_prompts            # opções: --rodadas 1, --pausa 6,
 
 O comando escreve `docs/avaliacao/resultado.md` com três métricas por versão: **erro médio** (distância da nota da IA até a referência), **faixa certa** (alta/média/baixa iguais às do frontend) e **variação entre rodadas** (a mesma entrada dá a mesma nota?).
 
-**Resultado:** _rodar o comando e colar aqui a tabela-resumo do `resultado.md`, com a decisão (manter a v2 ou trocar `VERSAO_PROMPT` para `"v3"`). O cache da análise não olha a versão do prompt: análises antigas continuam na v2 até o currículo, a vaga ou as preferências mudarem._
+**Resultado** (rodado em 23/11/2026, 2 rodadas por par; tabela completa em `docs/avaliacao/resultado.md`):
 
-## Teste com usuários (diferencial)
+| Métrica | v2 (produção) | v3 (escala explícita) |
+| --- | --- | --- |
+| Erro médio até a nota de referência | **10,7** | 12,7 |
+| Faixa certa (alta/média/baixa) | 10/11 | 10/11 |
+| Variação entre rodadas | 2,5 | **1,4** |
+| Chamadas que falharam (Gemini instável) | 1 de 22 | 4 de 22 |
 
-Roteiro em `docs/teste-usuarios.md` (5 tarefas, cerca de 15 min por pessoa). Registrar aqui o retorno das ~5 pessoas: quem testou (curso/semestre), onde travou e o que mudamos por causa disso.
+**Decisão: mantivemos a v2.** A v3 ficou um pouco mais estável entre rodadas, mas errou mais em relação à referência porque tende a **inflar a nota** em vagas de aderência média (par 3, referência 65: a v2 deu 80 e a v3 deu 90). As duas acertaram a faixa nos mesmos 10 pares e erraram o mesmo caso (par 3). Também vimos que as duas são duras demais quando a vaga é de uma área vizinha (par 8, referência 40: as duas deram 10 a 15), um ponto a melhorar numa próxima versão do prompt.
+
+Limitação: são só 11 pares e algumas chamadas falharam por instabilidade do Gemini, então a diferença entre as versões é pequena e o teste serve como indicativo, não como prova.
 
 ## Testes
 
